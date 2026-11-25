@@ -42,7 +42,7 @@
   const desc = `${p.t} — ${money(p.p)}. ${p.d.slice(0, 3).join(' · ')}${p.d.length ? '. ' : ''}Fast delivery across India from Jersey Orbit.`;
   setMeta('meta[name="description"]', 'content', desc);
   setMeta('meta[property="og:title"]', 'content', p.t);
-  setMeta('meta[property="og:image"]', 'content', JO.img(p.i[0], 1000));
+  setMeta('meta[property="og:image"]', 'content', JO.absUrl(JO.img(p.i[0], 1200)));
   setMeta('meta[property="og:type"]', 'content', 'product');
   const ld = document.createElement('script');
   ld.type = 'application/ld+json';
@@ -50,7 +50,7 @@
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: p.t,
-    image: p.i.map((i) => JO.img(i, 1000)),
+    image: p.i.map((i) => JO.absUrl(JO.img(i, 1200))),
     description: desc,
     brand: { '@type': 'Brand', name: 'Jersey Orbit' },
     offers: { '@type': 'Offer', priceCurrency: 'INR', price: p.p, availability: p.a ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url },
@@ -109,7 +109,7 @@
       <div class="assure">
         <div>${ic('truck')}<p style="margin:0"><b>Estimated delivery</b><span>Kerala ${est(k)} · Rest of India ${est(r)}</span></p></div>
         <div>${ic('box')}<p style="margin:0"><b>Dispatched within 24 hours</b><span>Excluding Sundays &amp; public holidays. Tracking ID on WhatsApp or email.</span></p></div>
-        <div>${ic('shield')}<p style="margin:0"><b>Secure checkout</b><span>Pay safely through Shopify’s trusted checkout.</span></p></div>
+        <div>${ic('shield')}<p style="margin:0"><b>Order on WhatsApp</b><span>No payment is taken on this website.</span></p></div>
       </div>
 
       ${JO.acc('Product details', detailsBody, true)}

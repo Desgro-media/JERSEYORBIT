@@ -1,6 +1,6 @@
 # JERSEYORBIT
 
-Front-end redesign of [jerseyorbit.com](https://jerseyorbit.com). Plain HTML, CSS and JavaScript, with no build step.
+Standalone website for Jersey Orbit: plain HTML, CSS and JavaScript, with no build step and no outside services needed to browse it.
 
 ## Run locally
 
@@ -10,18 +10,26 @@ python -m http.server 8123
 
 Then open <http://localhost:8123/index.html>.
 
-## Where things are
+## How ordering works
 
-| Path | What it does |
+Customers add jerseys to the cart, enter their delivery details on `checkout.html`, and send the order to the shop on WhatsApp. The website takes no payment and keeps no order records.
+
+## Editing
+
+| To change | Edit |
 | --- | --- |
-| `assets/js/config.js` | Brand text, navigation, categories, FAQ, size chart |
-| `assets/css/main.css` | All styles |
-| `assets/js/` | Page scripts. `data.js` and `content.js` are generated, so don't edit them by hand |
-| `tools/sync-products.mjs` | Refreshes products from the store. Add `--cache` to rebuild from the saved data |
-| `tools/build-content.mjs` | Rebuilds the policy text from the saved pages |
-| `tools/make-pages.mjs` | Regenerates the HTML shells for the content pages |
+| Text, menu, FAQ, shipping fees, size chart | `assets/js/config.js` |
+| Customer reviews | `chatReviews` in `config.js`, with images in `assets/img/reviews/` |
+| Design | `assets/css/main.css` |
+| Products, prices, stock | `assets/js/data.js` (photos are in `assets/img/p/`) |
 
-## Before using it
+There is no admin panel yet, so stock and prices only change when the catalog file is edited.
 
-- **Checkout, account links and the newsletter form connect to the live store.** Don't place test orders or subscribe test addresses. The newsletter success message does not confirm that the store accepted the address.
-- **The size chart is a placeholder.** Replace it in `config.js` with real garment measurements before launch.
+**Review screenshots:** crop or blur phone numbers, names, profile photos, faces and addresses before adding them. This repo is public, so never commit an original screenshot.
+
+`tools/sync-products.mjs` and `tools/localize-images.mjs` imported the catalog from the previous store. Running the first one again replaces `data.js`. If you do, run the second one straight after.
+
+## Before launch
+
+- Replace the placeholder size chart in `config.js` with real garment measurements.
+- Write a privacy policy and terms of service. The site only has shipping and refund policies.

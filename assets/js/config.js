@@ -6,14 +6,6 @@ window.JO_CONFIG = {
     logo: 'assets/img/logo.svg',
   },
 
-  shop: {
-    // Where carts are handed off for payment. Cart permalinks (/cart/<variantId>:<qty>) redirect to Shopify checkout.
-    origin: 'https://jerseyorbit.com',
-    // The store uses Shopify's passwordless customer accounts: one page handles both sign-in and sign-up.
-    accountUrl: 'https://jerseyorbit.com/account',
-    ordersUrl: 'https://jerseyorbit.com/account',
-  },
-
   contact: {
     email: 'jerseyorbit@gmail.com',
     whatsapp: '918943478770',
@@ -106,6 +98,17 @@ window.JO_CONFIG = {
     ],
   },
 
+  // Customer messages. The images are cropped copies with phone numbers, names, profile photos,
+  // a face and packet handwriting removed or blurred. Never add an un-redacted screenshot here.
+  chatReviews: [
+    { quote: 'Nalla quality annu bro ❤️‍🔥 Thankyou for you give jersy to me in 2days', thumb: 'assets/img/reviews/delivery-packs-t.webp', img: 'assets/img/reviews/delivery-packs.webp', w: 634, h: 1085, via: 'Instagram', alt: 'Customer photos of Jersey Orbit packets and jerseys: “Nalla quality annu bro. Thankyou for you give jersy to me in 2days”' },
+    { quote: 'Product kititoo.. 👍 Good quality 💗', thumb: 'assets/img/reviews/barca-delivery-t.webp', img: 'assets/img/reviews/barca-delivery.webp', w: 634, h: 945, via: 'Instagram', alt: 'Customer photos of the packet and a Barcelona jersey: “Product kititoo.. Good quality”' },
+    { quote: 'Bro sanam sett 🫶 Ellam pakka 💯', thumb: 'assets/img/reviews/tryon-stripes-t.webp', img: 'assets/img/reviews/tryon-stripes.webp', w: 634, h: 895, via: 'Instagram', light: true, alt: 'Customer wearing a striped jersey: “Bro sanam sett. Ellam pakka”' },
+    { quote: 'Sadhano kitty ttoh ❤️‍🔥🫶', thumb: 'assets/img/reviews/mirror-selfie-t.webp', img: 'assets/img/reviews/mirror-selfie.webp', w: 634, h: 685, via: 'Instagram', alt: 'Customer wearing the jersey, face blurred: “Sadhano kitty ttoh”' },
+    { quote: 'Machu sanam kitty 🫶 Set set ❤️‍🩹', thumb: 'assets/img/reviews/unboxed-set-t.webp', img: 'assets/img/reviews/unboxed-set.webp', w: 634, h: 582, via: 'Instagram', alt: 'Customer photo of packed jerseys: “Machu sanam kitty. Set set”' },
+    { quote: 'Jersey kitty. Nice aan decent quality ❤️', thumb: '', img: 'assets/img/reviews/whatsapp-quality.webp', w: 702, h: 292, via: 'WhatsApp', alt: 'WhatsApp message: “Jersey kitty. Nice aan decent quality”' },
+  ],
+
   // Mirrors the six "From Google Reviews" quotes published on the live homepage.
   // (They mention the 24/25 collection — swap in fresh ones whenever you have them.)
   reviews: [
@@ -119,8 +122,9 @@ window.JO_CONFIG = {
 
   // Answers are taken from the store's Shipping & Refund policies.
   faq: [
+    { q: 'How do I order and pay?', a: 'Add jerseys to your cart, enter your delivery details at checkout and send the order to us on <strong>WhatsApp</strong>. No payment is taken on this website.' },
     { q: 'How long does delivery take?', a: 'Kerala orders are typically delivered within <strong>2–3 business days</strong>. The rest of India takes <strong>5–10 business days</strong>. Orders are processed and dispatched within 24 hours (excluding Sundays and public holidays).' },
-    { q: 'How much is shipping?', a: 'A flat rate of <strong>₹59 within Kerala</strong> and <strong>₹99 for the rest of India</strong>. The exact amount is confirmed at checkout.' },
+    { q: 'How much is shipping?', a: 'A flat rate of <strong>₹59 within Kerala</strong> and <strong>₹99 for the rest of India</strong>, added at checkout.' },
     { q: 'How do I track my order?', a: 'Once your jersey ships we send you a tracking ID on <strong>WhatsApp or email</strong>. Send it to us from the <a href="track.html">Order Tracking</a> page and we will get you the latest status.' },
     { q: 'Can I return or exchange a jersey?', a: 'We do not accept returns or exchanges for size issues, change of mind, or dislike of the product. Returns or exchanges are only possible if the jersey arrives <strong>damaged / defective</strong> or if we sent the <strong>wrong product</strong>. See the full <a href="policies.html?p=refund">Return &amp; Refund Policy</a>.' },
     { q: 'What do I need to claim a damaged or wrong item?', a: 'A continuous, <strong>unedited unboxing video</strong> showing the package being opened for the first time, with the label and the defect or error clearly visible. Claims must be reported within <strong>48 hours of delivery</strong> on WhatsApp or email, with your order details and the video.' },
@@ -129,13 +133,5 @@ window.JO_CONFIG = {
     { q: 'How can I contact Jersey Orbit?', a: 'WhatsApp <strong>+91 89434 78770</strong> or email <strong>jerseyorbit@gmail.com</strong>. You can also message us on Instagram <strong>@jersey.orbit</strong>.' },
   ],
 
-  newsletter: {
-    // Posts to the Shopify store's built-in customer form so the address lands in Shopify > Customers.
-    action: 'https://jerseyorbit.com/contact#contact_form',
-    tag: 'newsletter',
-  },
 
-  contactForm: {
-    action: 'https://jerseyorbit.com/contact#contact_form',
-  },
 };

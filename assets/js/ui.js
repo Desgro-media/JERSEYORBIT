@@ -233,7 +233,6 @@
         <nav class="hdr__nav" aria-label="Main">${navHtml}</nav>
         <div class="hdr__icons">
           <button class="icon-btn" type="button" data-open="search" aria-label="Search">${ic('search')}</button>
-          <a class="icon-btn acc-link" href="account.html" aria-label="My account" ${page === 'account' ? 'aria-current="page"' : ''}>${ic('user')}</a>
           <button class="icon-btn" type="button" data-open="cart" aria-label="Open cart">${ic('bag')}<span class="badge" data-cart-count>0</span></button>
         </div>
       </div>
@@ -254,7 +253,6 @@
               : `<a href="${n.href}">${n.label}</a>`
           )
           .join('')}
-        <a href="account.html">My Account</a>
       </nav></div>
       <div class="mnav__foot"><a class="btn btn--block" href="${JO.wa('Hi Jersey Orbit!')}" target="_blank" rel="noopener">${ic('whatsapp')} Chat on WhatsApp</a><a class="btn btn--outline btn--block" href="${CFG.contact.instagram}" target="_blank" rel="noopener">${ic('instagram')} ${CFG.contact.instagramHandle}</a></div>
     </aside>
@@ -278,7 +276,6 @@
       <a href="shop.html" ${page === 'shop' ? 'aria-current="page"' : ''}>${ic('grid')}Catalog</a>
       <button type="button" data-open="search">${ic('search')}Search</button>
       <button type="button" data-open="cart">${ic('bag')}Cart<span class="badge" data-cart-count>0</span></button>
-      <a href="account.html" ${page === 'account' ? 'aria-current="page"' : ''}>${ic('user')}Account</a>
     </nav>
 
     <a class="wa" href="${JO.wa('Hi Jersey Orbit! I have a question.')}" target="_blank" rel="noopener" aria-label="Chat with us on WhatsApp">${ic('whatsapp')}</a>
@@ -300,59 +297,50 @@
           </div>
           <div><h4>Shop</h4><ul>${CFG.categories.slice(0, 7).map((c) => `<li><a href="${JO.url.shop(c.key)}">${esc(c.title)}</a></li>`).join('')}</ul></div>
           <div><h4>Help</h4><ul>
-            <li><a href="track.html">Order Tracking</a></li><li><a href="faq.html">FAQ</a></li><li><a href="contact.html">Contact Us</a></li><li><a href="reviews.html">Reviews</a></li><li><a href="about.html">About Us</a></li><li><a href="account.html">My Account</a></li></ul></div>
+            <li><a href="track.html">Order Tracking</a></li><li><a href="faq.html">FAQ</a></li><li><a href="contact.html">Contact Us</a></li><li><a href="reviews.html">Reviews</a></li><li><a href="about.html">About Us</a></li></ul></div>
           <div><h4>Policies</h4><ul>
-            <li><a href="policies.html?p=shipping">Shipping Policy</a></li><li><a href="policies.html?p=refund">Refund Policy</a></li><li><a href="policies.html?p=privacy">Privacy Policy</a></li><li><a href="policies.html?p=terms">Terms of Service</a></li></ul>
+            <li><a href="policies.html?p=shipping">Shipping Policy</a></li><li><a href="policies.html?p=refund">Refund Policy</a></li></ul>
             <p style="margin-top:18px;font-size:13px"><span style="white-space:nowrap">WhatsApp ${CFG.contact.whatsappDisplay}</span><br>${CFG.contact.email}</p></div>
         </div>
-        <div class="ftr__bar"><span>© ${new Date().getFullYear()} ${CFG.brand.name}. All rights reserved.</span><span>Prices in INR · Secure checkout by Shopify</span></div>
+        <div class="ftr__bar"><span>© ${new Date().getFullYear()} ${CFG.brand.name}. All rights reserved.</span><span>Prices in INR · Order easily on WhatsApp</span></div>
       </div>
     </footer>`;
 
   JO.newsBand = () => `
     <section class="section news" aria-labelledby="news-t">
       <div class="wrap">
-        <h2 id="news-t">Sign up and save</h2>
-        <p>Get exclusive deals and early access to new products.</p>
-        <form class="news__form" data-news novalidate>
-          <label class="sr-only" for="news-email">Email address</label>
-          <input id="news-email" type="email" name="email" placeholder="Enter your email" autocomplete="email" required>
-          <button type="submit">Subscribe</button>
-        </form>
-        <p class="news__msg" role="status" data-news-msg></p>
+        <h2 id="news-t">Get new drops first</h2>
+        <p>Message us or follow along for new kits and offers.</p>
+        <div class="hero__cta" style="justify-content:center">
+          <a class="btn" href="${JO.wa('Hi Jersey Orbit! Please send me updates about new drops.')}" target="_blank" rel="noopener">${ic('whatsapp')} Message us</a>
+          <a class="btn btn--outline" href="${CFG.contact.instagram}" target="_blank" rel="noopener">${ic('instagram')} Follow on Instagram</a>
+        </div>
       </div>
     </section>`;
 
-  document.addEventListener('submit', async (e) => {
-    const f = e.target.closest('form[data-news]');
-    if (!f) return;
-    e.preventDefault();
-    const msg = f.parentElement.querySelector('[data-news-msg]');
-    const email = f.email.value.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      msg.textContent = 'Please enter a valid email address.';
-      msg.classList.add('is-err');
-      return f.email.focus();
+  /* ---------- tap to enlarge (customer chat images) ---------- */
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-zoom]');
+    if (!t) return;
+    let m = $('#zoom');
+    if (!m) {
+      document.body.insertAdjacentHTML('beforeend', `<div class="modal" id="zoom" role="dialog" aria-modal="true" aria-label="Customer message" inert><div class="modal__bg" data-close></div><div class="zoombox"><button class="icon-btn zoombox__x" type="button" data-close aria-label="Close">${ic('x')}</button><img alt=""></div></div>`);
+      m = $('#zoom');
     }
-    msg.classList.remove('is-err');
-    const btn = f.querySelector('button');
-    btn.disabled = true;
-    try {
-      // Shopify's built-in customer form: the address appears under Customers (tagged "newsletter").
-      const fd = new FormData();
-      fd.append('form_type', 'customer');
-      fd.append('utf8', '✓');
-      fd.append('contact[email]', email);
-      fd.append('contact[tags]', CFG.newsletter.tag);
-      await fetch(CFG.newsletter.action, { method: 'POST', body: fd, mode: 'no-cors' });
-      f.reset();
-      msg.textContent = 'Thanks for subscribing! You’re on the list.';
-    } catch (err) {
-      msg.textContent = 'Could not subscribe right now — please try again in a moment.';
-      msg.classList.add('is-err');
-    }
-    btn.disabled = false;
+    const img = $('img', m);
+    img.src = t.dataset.zoom;
+    img.alt = t.dataset.alt || '';
+    JO.open(m, { overlayOn: false, focus: '[data-close]' });
   });
+
+  /* customer review card: small by default, the full chat opens on click */
+  JO.chatCard = (r) => {
+    const icon = ic(r.via === 'WhatsApp' ? 'whatsapp' : 'instagram');
+    return `<button class="chat" type="button" data-zoom="${r.img}" data-alt="${esc(r.alt)}">
+      <span class="chat__thumb">${r.thumb ? `<img src="${r.thumb}" alt="" width="64" height="64" loading="lazy" decoding="async">` : icon}</span>
+      <span class="chat__body"><span class="chat__quote">${esc(r.quote)}</span><span class="chat__via">${icon} ${r.via}<b>View chat</b></span></span>
+    </button>`;
+  };
 
   /* ---------- mount shell ---------- */
   document.body.insertAdjacentHTML('afterbegin', shellTop);
@@ -508,11 +496,6 @@
     return `<div class="ship-bar">${left ? `Add <b>${money(left)}</b> more for free shipping` : '<b>🎉 You’ve unlocked free shipping!</b>'}<div class="ship-bar__track"><div class="ship-bar__fill" style="width:${Math.min(100, (sub / thr) * 100)}%"></div></div></div>`;
   };
 
-  JO.codeBlockHtml = () =>
-    JO.cart.code
-      ? `<div class="code-chip">Code ${esc(JO.cart.code)} · applied at checkout <button type="button" data-clear-code aria-label="Remove code">${ic('x')}</button></div>`
-      : `<form class="disc" data-code-form><input type="text" name="code" placeholder="Discount code" autocomplete="off" aria-label="Discount code"><button class="btn btn--outline" type="submit">Apply</button></form>`;
-
   JO.noteHtml = () => `<button type="button" class="note-toggle" data-note-toggle>${JO.cart.note ? 'Edit order note' : 'Add an order note'}</button><textarea class="note-box${JO.cart.note ? ' is-open' : ''}" data-note placeholder="Anything we should know? (e.g. name/number on the jersey, delivery notes)" aria-label="Order note" maxlength="500">${esc(JO.cart.note)}</textarea>`;
 
   function renderCart() {
@@ -536,7 +519,7 @@
     } else {
       cartFoot.hidden = false;
       cartBody.innerHTML = `${JO.shipBarHtml()}<ul>${lines.map((l) => JO.lineHtml(l)).join('')}</ul>`;
-      cartFoot.innerHTML = `${JO.noteHtml()}${JO.codeBlockHtml()}${JO.cartTotalsHtml()}
+      cartFoot.innerHTML = `${JO.noteHtml()}${JO.cartTotalsHtml()}
         <div class="foot-actions"><a class="btn btn--block" href="${JO.cart.checkoutUrl()}" data-checkout>Checkout ${ic('arrow')}</a><a class="btn btn--outline btn--block" href="cart.html">View cart</a></div>`;
     }
     JO.markLoaded(cartBody);
@@ -570,29 +553,13 @@
         li.style.transform = 'translateX(30px)';
       }
       setTimeout(() => JO.cart.remove(b.dataset.remove), li ? 260 : 0);
-    } else if (t.closest('[data-clear-code]')) JO.cart.setCode('');
-    else if ((b = t.closest('[data-note-toggle]'))) {
+    } else if ((b = t.closest('[data-note-toggle]'))) {
       const box = b.nextElementSibling;
       box.classList.toggle('is-open');
       box.classList.contains('is-open') && box.focus();
     }
   });
-  document.addEventListener('submit', (e) => {
-    const f = e.target.closest('[data-code-form]');
-    if (!f) return;
-    e.preventDefault();
-    const v = f.code.value.trim();
-    if (!v) return f.code.focus();
-    JO.cart.setCode(v);
-    JO.toast('Code saved — it will be applied at checkout');
-  });
   document.addEventListener('input', (e) => e.target.matches('[data-note]') && JO.cart.setNote(e.target.value));
-  // keep checkout links fresh if the note/code changed without re-render
-  document.addEventListener('click', (e) => {
-    const a = e.target.closest('[data-checkout]');
-    a && (a.href = JO.cart.checkoutUrl());
-  }, true);
-
   /* ---------- search ---------- */
   const sEl = $('#search'),
     sInput = $('input[name=q]', sEl),

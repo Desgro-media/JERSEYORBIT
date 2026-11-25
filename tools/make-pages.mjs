@@ -11,14 +11,14 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const pages = {
-  cart: ['Your cart — Jersey Orbit', 'Review the jerseys in your cart and check out securely.'],
+  checkout: ['Checkout — Jersey Orbit', 'Enter your delivery details and send your order on WhatsApp.'],
+  cart: ['Your cart — Jersey Orbit', 'Review the jerseys in your cart and send your order on WhatsApp.'],
   about: ['About us — Jersey Orbit', 'Jersey Orbit — the centre of your football universe. Premium jerseys from Kerala, delivered across India.'],
   contact: ['Contact us — Jersey Orbit', 'Questions about a jersey, size or order? Message Jersey Orbit on WhatsApp or email.'],
   faq: ['FAQ — Jersey Orbit', 'Answers about delivery, shipping charges, tracking, returns and sizes.'],
   track: ['Order tracking — Jersey Orbit', 'Track your Jersey Orbit order — we share a tracking ID on WhatsApp or email once it ships.'],
   reviews: ['Customer reviews — Jersey Orbit', 'What football fans say about Jersey Orbit.'],
-  policies: ['Policies — Jersey Orbit', 'Shipping, return & refund, privacy and terms of service.'],
-  account: ['My account — Jersey Orbit', 'Sign in to view your orders and saved addresses.'],
+  policies: ['Policies — Jersey Orbit', 'Shipping and return & refund policies.'],
   '404': ['Page not found — Jersey Orbit', 'This page could not be found.'],
 };
 
@@ -31,7 +31,6 @@ const tpl = (key, title, desc) => `<!doctype html>
 <meta name="description" content="${desc}">
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://cdn.shopify.com" crossorigin>
 <link rel="preload" href="assets/fonts/fjalla-one-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/poppins-500.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/fonts.css">

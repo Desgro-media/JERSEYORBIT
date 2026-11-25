@@ -40,7 +40,8 @@ function sanitize(html) {
 }
 
 const out = {};
-for (const k of ['shipping', 'refund', 'privacy', 'terms']) {
+// privacy & terms were the old store platform's boilerplate, so they are not carried over
+for (const k of ['shipping', 'refund']) {
   let html = sanitize(fs.readFileSync(path.join(CACHE, `page_${k}.html`), 'utf8'));
   // the page template renders its own title, drop a leading duplicate heading from the policy body
   html = html.replace(/^\s*<h[1-3]>[\s\S]*?<\/h[1-3]>\s*/i, '');

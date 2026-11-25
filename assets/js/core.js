@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const CFG = window.JO_CONFIG;
-  const DATA = window.JO_DATA || { products: [], collections: {}, cdn: '' };
+  const DATA = window.JO_DATA || { products: [], collections: {} };
   const JO = (window.JO = { cfg: CFG, data: DATA });
 
   /* ---------- tiny helpers ---------- */
@@ -44,16 +44,13 @@
   JO.wa = (text) => `https://wa.me/${CFG.contact.whatsapp}${text ? '?text=' + encodeURIComponent(text) : ''}`;
   JO.absUrl = (rel) => new URL(rel, location.href).href;
 
-  /* ---------- images (Shopify CDN does the resizing) ---------- */
-  JO.img = (im, w) => {
-    const u = typeof im === 'string' ? im : im.u;
-    return DATA.cdn + u + (u.includes('?') ? '&' : '?') + 'width=' + w;
-  };
-  JO.srcset = (im, widths) => widths.map((w) => `${JO.img(im, w)} ${w}w`).join(', ');
+  /* ---------- images (local files: s = 480px wide, l = 1200px wide) ---------- */
+  JO.img = (im, w) => (w <= 520 ? im.s : im.l);
   JO.imgTag = (im, o = {}) => {
-    const w = o.widths || [320, 480, 720, 960];
+    const thumb = Math.max(...(o.widths || [960])) <= 520; // thumbnails never need the large file
     const ar = im.w && im.h ? ` width="${Math.round(im.w / 6)}" height="${Math.round(im.h / 6)}"` : '';
-    return `<img class="${o.cls || ''}" src="${JO.img(im, w[1] || w[0])}" srcset="${JO.srcset(im, w)}" sizes="${o.sizes || '50vw'}" alt="${JO.esc(o.alt || '')}"${ar} ${o.eager ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
+    const set = thumb ? '' : ` srcset="${im.s} 480w, ${im.l} 1200w" sizes="${o.sizes || '50vw'}"`;
+    return `<img class="${o.cls || ''}" src="${im.s}"${set} alt="${JO.esc(o.alt || '')}"${ar} ${o.eager ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
   };
 
   /* ---------- catalog ---------- */
@@ -171,8 +168,8 @@
   /* ---------- cart ---------- */
   const KEY = 'jo_cart_v1';
   const MAX_QTY = 10;
-  let state = JO.store.get(KEY, { items: [], note: '', code: '' });
-  if (!state || !Array.isArray(state.items)) state = { items: [], note: '', code: '' };
+  let state = JO.store.get(KEY, { items: [], note: '' });
+  if (!state || !Array.isArray(state.items)) state = { items: [], note: '' };
   state.items = state.items.filter((i) => byVid.has(i.v));
   const save = () => JO.store.set(KEY, state);
 
@@ -196,9 +193,6 @@
     },
     get note() {
       return state.note || '';
-    },
-    get code() {
-      return state.code || '';
     },
     add(vid, qty = 1) {
       const r = byVid.get(Number(vid));
@@ -232,26 +226,15 @@
       state.note = String(t || '').slice(0, 500);
       save();
     },
-    setCode(c) {
-      state.code = String(c || '').trim().toUpperCase().slice(0, 40);
-      save();
-      JO.emit('cart', {});
-    },
     MAX_QTY,
-    /** Shopify cart permalink: /cart/<variantId>:<qty>,… — redirects straight to checkout with the cart filled. */
+    /** our own checkout page; pass [{ v, q }] for "Buy it now" so the cart is left alone */
     checkoutUrl(items) {
-      const list = items || state.items.map((i) => ({ v: i.v, q: i.q }));
-      if (!list.length) return CFG.shop.origin + '/cart';
-      const q = new URLSearchParams();
-      if (state.code) q.set('discount', state.code);
-      if (!items && state.note) q.set('note', state.note);
-      const qs = q.toString();
-      return `${CFG.shop.origin}/cart/${list.map((i) => i.v + ':' + i.q).join(',')}${qs ? '?' + qs : ''}`;
+      return items && items.length ? `checkout.html?buy=${items[0].v}:${items[0].q}` : 'checkout.html';
     },
   });
   window.addEventListener('storage', (e) => {
     if (e.key !== KEY) return;
-    state = JO.store.get(KEY, { items: [], note: '', code: '' });
+    state = JO.store.get(KEY, { items: [], note: '' });
     JO.emit('cart', { external: true });
   });
 

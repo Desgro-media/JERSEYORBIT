@@ -1,4 +1,4 @@
-/* Jersey Orbit — content pages: cart, about, contact, faq, track, reviews, policies, account, 404 */
+/* Jersey Orbit — content pages: cart, checkout, about, contact, faq, track, reviews, policies, 404 */
 (function () {
   'use strict';
   const JO = window.JO,
@@ -30,7 +30,7 @@
       }
       root.innerHTML = `<div class="cartp">
         <div>${JO.shipBarHtml()}<ul>${lines.map((l) => JO.lineHtml(l, true)).join('')}</ul><p style="margin-top:20px"><a class="link-arrow" href="shop.html">Continue shopping ${ic('arrow')}</a></p></div>
-        <aside class="summary"><h3>Order summary</h3>${JO.noteHtml()}${JO.codeBlockHtml()}${JO.cartTotalsHtml()}<a class="btn btn--block" href="${JO.cart.checkoutUrl()}" data-checkout>Checkout ${ic('arrow')}</a><p style="font-size:12.5px;color:var(--muted);margin:14px 0 0;text-align:center">You’ll pay on Shopify’s secure checkout page.</p></aside>
+        <aside class="summary"><h3>Order summary</h3>${JO.noteHtml()}${JO.cartTotalsHtml()}<a class="btn btn--block" href="${JO.cart.checkoutUrl()}" data-checkout>Checkout ${ic('arrow')}</a><p style="font-size:12.5px;color:var(--muted);margin:14px 0 0;text-align:center">No payment is taken on this website.</p></aside>
       </div>`;
       $('[data-cart-rec]').innerHTML = recs();
       JO.initRails(main);
@@ -124,9 +124,9 @@
       <div class="split" style="padding-bottom:20px">
         <form class="form" data-track novalidate>
           <div class="field"><label for="t-id">Order number or tracking ID</label><input id="t-id" name="id" placeholder="e.g. #1042 or your tracking ID" autocomplete="off" required><span class="err">Please enter your order number or tracking ID.</span></div>
-          <div class="hero__cta"><button class="btn" type="submit">${ic('whatsapp')} Get status on WhatsApp</button><a class="btn btn--outline" href="${CFG.shop.ordersUrl}" target="_blank" rel="noopener">View my orders ${ic('arrow')}</a></div>
+          <div class="hero__cta"><button class="btn" type="submit">${ic('whatsapp')} Get status on WhatsApp</button></div>
         </form>
-        <div class="callout" style="margin:0;align-self:start"><b>Tip:</b> sign in to your account to see every order and its status in one place. Don’t have a tracking ID yet? Orders are packed and dispatched within 24 hours (excluding Sundays and public holidays).</div>
+        <div class="callout" style="margin:0;align-self:start"><b>No tracking ID yet?</b> Orders are packed and dispatched within 24 hours (excluding Sundays and public holidays).</div>
       </div>
       <div class="steps" style="padding-bottom:clamp(40px,6vw,90px)">
         <div class="step"><b>01</b><h3 style="font-size:22px;text-transform:uppercase;margin-bottom:6px">Order placed</h3><p>Your order comes in and we start getting it ready.</p></div>
@@ -145,18 +145,16 @@
 
   /* ---------- reviews ---------- */
   R.reviews = () => {
-    main.innerHTML = `<div class="wrap">${phead('Customer reviews', 'What football fans say about Jersey Orbit.', 'Reviews')}
-      <div class="usps" style="grid-template-columns:repeat(3,1fr);padding-bottom:clamp(30px,5vw,60px)" data-rev>${CFG.reviews.map((r, i) => `<figure class="rev" data-reveal style="margin:0;--i:${i % 3}">${JO.stars(5)}<q>${esc(r.text)}</q><footer><span class="rev__av">${esc(r.name[0])}</span><div><div class="rev__name">${esc(r.name)}</div><div class="rev__src">${JO.GOOGLE} From Google Reviews</div></div></footer></figure>`).join('')}</div></div>
+    main.innerHTML = `<div class="wrap">${phead('Customer reviews', 'Real messages from our WhatsApp and Instagram chats. Tap a review to see the chat.', 'Reviews')}
+      <div class="chats">${CFG.chatReviews.map(JO.chatCard).join('')}</div>
+      <h2 style="font-size:clamp(28px,3.4vw,44px);text-transform:uppercase;margin:clamp(34px,5vw,64px) 0 20px">More reviews</h2>
+      <div class="rev-grid">${CFG.reviews.map((r) => `<figure class="rev" style="margin:0">${JO.stars(5)}<q>${esc(r.text)}</q><footer><span class="rev__av">${esc(r.name[0])}</span><div><div class="rev__name">${esc(r.name)}</div><div class="rev__src">${JO.GOOGLE} From Google Reviews</div></div></footer></figure>`).join('')}</div></div>
       ${cta('Got your jersey?', 'We’d love to hear how it fits. Share a photo or a few words with us on WhatsApp or Instagram.')}`;
-    const g = $('[data-rev]');
-    const fit = () => (g.style.gridTemplateColumns = innerWidth < 700 ? '1fr' : innerWidth < 1100 ? 'repeat(2,1fr)' : 'repeat(3,1fr)');
-    fit();
-    addEventListener('resize', JO.debounce(fit, 150));
   };
 
   /* ---------- policies ---------- */
   R.policies = () => {
-    const T = { shipping: 'Shipping Policy', refund: 'Return & Refund Policy', privacy: 'Privacy Policy', terms: 'Terms of Service' };
+    const T = { shipping: 'Shipping Policy', refund: 'Return & Refund Policy' };
     const key = T[new URLSearchParams(location.search).get('p')] ? new URLSearchParams(location.search).get('p') : 'shipping';
     document.title = `${T[key]} — Jersey Orbit`;
     main.innerHTML = `<div class="wrap">${phead(T[key], '', T[key])}
@@ -165,16 +163,84 @@
   };
 
   /* ---------- account ---------- */
-  R.account = () => {
-    const items = [
-      ['user', 'Sign in or sign up', 'One step: enter your email to sign in or create your account.', CFG.shop.accountUrl],
-      ['box', 'My orders', 'Sign in to see what you’ve ordered.', CFG.shop.ordersUrl],
-      ['truck', 'Order tracking', 'Get the latest status of your parcel.', 'track.html'],
-      ['whatsapp', 'Need help?', 'Message us about an order, a size or stock.', JO.wa('Hi Jersey Orbit!')],
-    ];
-    const ext = (u) => (u.startsWith('http') ? ' target="_blank" rel="noopener"' : '');
-    main.innerHTML = `<div class="wrap">${phead('My account', 'Sign-in and orders are handled securely by our Shopify store.', 'Account')}
-      <div class="usps" style="padding-bottom:clamp(40px,6vw,90px)">${items.map((it, i) => `<a class="usp" href="${it[3]}"${ext(it[3])} data-reveal style="--i:${i}"><div class="usp__ic">${ic(it[0])}</div><h3>${it[1]}</h3><p>${it[2]}</p></a>`).join('')}</div></div>`;
+  R.checkout = () => {
+    const [buyId, buyQty] = (new URLSearchParams(location.search).get('buy') || '').split(':');
+    const getLines = () => {
+      if (!buyId) return JO.cart.lines();
+      const r = JO.byVid(buyId);
+      return r && r.v.a ? [{ p: r.p, size: r.v.s, price: r.v.p, img: r.p.i[0], qty: Math.min(JO.cart.MAX_QTY, Math.max(1, parseInt(buyQty, 10) || 1)) }] : [];
+    };
+    const lines = getLines();
+    if (!lines.length) {
+      main.innerHTML = `<div class="wrap">${phead('Checkout', '')}<div class="empty"><div class="empty__art">${ic('bag')}</div><h3>Nothing to check out</h3><p>Add a jersey to your cart first.</p><a class="btn" href="shop.html">Browse jerseys ${ic('arrow')}</a></div></div>`;
+      return;
+    }
+    const sub = lines.reduce((n, l) => n + l.price * l.qty, 0);
+    const AREAS = { kerala: ['Kerala', CFG.shipping.kerala.fee], india: ['Outside Kerala', CFG.shipping.india.fee] };
+    const field = (id, label, attrs, error) => `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id.slice(3)}" ${attrs}><span class="err">${error}</span></div>`;
+    main.innerHTML = `<div class="wrap">${phead('Checkout', 'Add your delivery details, then send the order to us on WhatsApp. No payment is taken on this website.')}
+      <div class="cartp">
+        <form class="form" data-checkout-form novalidate>
+          <div class="form-row">
+            ${field('co-name', 'Full name', 'autocomplete="name"', 'Please enter your name.')}
+            ${field('co-phone', 'Phone', 'type="tel" inputmode="numeric" autocomplete="tel"', 'Enter a 10-digit mobile number.')}
+          </div>
+          <div class="field"><label for="co-address">Address</label><textarea id="co-address" name="address" autocomplete="street-address" style="min-height:90px"></textarea><span class="err">Please enter your address.</span></div>
+          <div class="form-row">
+            ${field('co-city', 'Town / city', 'autocomplete="address-level2"', 'Please enter your town or city.')}
+            ${field('co-pin', 'PIN code', 'inputmode="numeric" maxlength="6" autocomplete="postal-code"', 'Enter a 6-digit PIN code.')}
+          </div>
+          <div class="field"><label for="co-area">Delivery area</label><select id="co-area" name="area"><option value="">Choose…</option>${Object.entries(AREAS).map(([k, a]) => `<option value="${k}">${a[0]} — ${money(a[1])} shipping</option>`).join('')}</select><span class="err">Please choose your delivery area.</span></div>
+          <div class="field"><label for="co-note">Order note (optional)</label><textarea id="co-note" name="note" style="min-height:70px" maxlength="500">${esc(JO.cart.note)}</textarea></div>
+          <button class="btn btn--block" type="submit">${ic('whatsapp')} Send order on WhatsApp</button>
+        </form>
+        <aside class="summary"><h3>Your order</h3>
+          <ul class="co-lines">${lines.map((l) => `<li><span class="co-lines__img">${JO.imgTag(l.img, { widths: [200], alt: '' })}</span><span><b>${esc(l.p.t)}</b><small>${l.size === 'One Size' ? 'One size' : 'Size ' + esc(l.size)} × ${l.qty}</small></span><em>${money(l.price * l.qty)}</em></li>`).join('')}</ul>
+          <div class="totals"><div><span>Subtotal</span><span>${money(sub)}</span></div><div><span>Shipping</span><span data-ship>Choose area</span></div><div class="grand"><span>Total</span><span data-total>${money(sub)}</span></div></div>
+        </aside>
+      </div></div>`;
+    const form = $('[data-checkout-form]');
+    form.area.addEventListener('change', () => {
+      const a = AREAS[form.area.value];
+      $('[data-ship]').textContent = a ? money(a[1]) : 'Choose area';
+      $('[data-total]').textContent = money(sub + (a ? a[1] : 0));
+    });
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = (n) => form.elements[n].value.trim();
+      const phone = v('phone').replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '');
+      const bad = { name: !v('name'), phone: !/^[6-9]\d{9}$/.test(phone), address: !v('address'), city: !v('city'), pin: !/^[1-9]\d{5}$/.test(v('pin')), area: !AREAS[v('area')] };
+      Object.entries(bad).forEach(([n, isBad]) => form.elements[n].closest('.field').classList.toggle('is-err', isBad));
+      const first = Object.keys(bad).find((n) => bad[n]);
+      if (first) return form.elements[first].focus();
+      const [areaName, fee] = AREAS[v('area')];
+      const text = [
+        'Hi Jersey Orbit! I would like to order:',
+        '',
+        ...lines.map((l, i) => `${i + 1}) ${l.p.t}\n    Size: ${l.size} x ${l.qty} = ${money(l.price * l.qty)}`),
+        '',
+        `Subtotal: ${money(sub)}`,
+        `Shipping (${areaName}): ${money(fee)}`,
+        `Total: ${money(sub + fee)}`,
+        '',
+        `Name: ${v('name')}`,
+        `Phone: ${phone}`,
+        `Address: ${v('address')}`,
+        `Town/City: ${v('city')} - ${v('pin')}`,
+        v('note') ? `Note: ${v('note')}` : '',
+      ].join('\n').trim();
+      const link = JO.wa(text);
+      window.open(link, '_blank', 'noopener');
+      main.innerHTML = `<div class="wrap"><div class="empty" style="padding-block:clamp(60px,10vw,120px)"><div class="empty__art">${ic('whatsapp')}</div><h3>One last step</h3><p>Press <b>Send</b> in WhatsApp. Your order isn’t placed until you send that message.</p><div class="hero__cta" style="justify-content:center"><a class="btn" href="${esc(link)}" target="_blank" rel="noopener">Open WhatsApp again</a>${buyId ? '' : '<button class="btn btn--outline" type="button" data-sent>I’ve sent it — clear my cart</button>'}<a class="btn btn--outline" href="shop.html">Keep shopping</a></div></div></div>`;
+      scrollTo({ top: 0, behavior: 'instant' });
+      const sent = $('[data-sent]');
+      sent && sent.addEventListener('click', () => {
+        JO.cart.clear();
+        JO.cart.setNote('');
+        sent.remove();
+        JO.toast('Cart cleared');
+      });
+    });
   };
 
   /* ---------- 404 ---------- */
@@ -183,9 +249,9 @@
   };
 
   (R[page] || (() => {}))();
-  if (['about', 'reviews', 'account', 'policies', 'track', 'contact', 'faq'].includes(page)) {
+  if (['about', 'policies', 'track'].includes(page)) {
     // newsletter band on content pages
-    main.insertAdjacentHTML('beforeend', ['faq', 'contact', 'reviews'].includes(page) ? '' : JO.newsBand());
+    main.insertAdjacentHTML('beforeend', JO.newsBand());
   }
   JO.reveal(main);
   JO.markLoaded(main);

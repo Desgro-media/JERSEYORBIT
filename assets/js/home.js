@@ -107,7 +107,7 @@
       <div class="wrap"><div class="usps">
         <div class="usp" data-reveal style="--i:0"><div class="usp__ic">${ic('sparkle')}</div><h3>Premium quality</h3><p>Dot-knit fabric and detailed stitching — made to look as good in the street as on the pitch.</p></div>
         <div class="usp" data-reveal style="--i:1"><div class="usp__ic">${ic('truck')}</div><h3>Fast delivery</h3><p>Kerala in 2–3 days, rest of India in 5–10 days. Dispatched within 24 hours.</p></div>
-        <div class="usp" data-reveal style="--i:2"><div class="usp__ic">${ic('shield')}</div><h3>Secure checkout</h3><p>Payment happens on Shopify’s trusted checkout page.</p></div>
+        <div class="usp" data-reveal style="--i:2"><div class="usp__ic">${ic('bag')}</div><h3>Easy ordering</h3><p>Pick your jerseys, add your address and send the order to us on WhatsApp.</p></div>
         <div class="usp" data-reveal style="--i:3"><div class="usp__ic">${ic('whatsapp')}</div><h3>Real human support</h3><p>Questions about size or stock? Chat with us on WhatsApp — we’re happy to help.</p></div>
       </div></div>
     </section>`;
@@ -115,15 +115,8 @@
   const reviewsHtml = `
     <section class="section section--soft" aria-labelledby="rev-t">
       <div class="wrap">
-        <div class="sec-head"><div><h2 id="rev-t">What our customers say</h2><p>Trusted by football fans across India.</p></div><div class="sec-head__r">${JO.railNav()}<a class="link-arrow" href="reviews.html">All reviews ${ic('arrow')}</a></div></div>
-        ${JO.rail(
-          CFG.reviews
-            .map(
-              (r) => `<figure class="rev" style="margin:0">${JO.stars(5)}<q>${esc(r.text)}</q><footer><span class="rev__av">${esc(r.name[0])}</span><div><div class="rev__name">${esc(r.name)}</div><div class="rev__src">${JO.GOOGLE} From Google Reviews</div></div></footer></figure>`
-            )
-            .join(''),
-          'rail--reviews'
-        )}
+        <div class="sec-head"><div><h2 id="rev-t">What our customers say</h2><p>Real messages from our WhatsApp and Instagram chats.</p></div><div class="sec-head__r">${JO.railNav()}<a class="link-arrow" href="reviews.html">All reviews ${ic('arrow')}</a></div></div>
+        ${JO.rail(CFG.chatReviews.map(JO.chatCard).join(''), 'rail--chats')}
       </div>
     </section>`;
 
