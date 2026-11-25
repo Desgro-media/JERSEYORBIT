@@ -1,0 +1,10 @@
+# Raw research downloads that no script reads.
+# home.html is a full copy of the live homepage (it embeds the storefront's tokens) — keep it out of the repo.
+tools/cache/home.html
+tools/cache/c_frontpage.json
+tools/cache/fonts.css
+tools/cache/logo.svg
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
