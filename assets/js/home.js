@@ -29,12 +29,12 @@
           <article class="hero__slide${i === 0 ? ' is-active' : ''}" aria-roledescription="slide" aria-label="${i + 1} of ${heroSlides.length}" ${i ? 'aria-hidden="true"' : ''}>
             <div class="hero__copy">
               <p class="eyebrow">${esc(s.h.eyebrow)}</p>
-              ${i === 0 ? '<h1>' : '<h2 class="h1like" style="font-size:clamp(44px,7vw,108px);text-transform:uppercase;line-height:.96;margin-bottom:18px">'}${esc(s.h.title)}${i === 0 ? '</h1>' : '</h2>'}
+              ${i === 0 ? '<h1>' : '<h2 class="h1like" style="font-size:clamp(44px,7vw,108px);text-transform:uppercase;line-height:.96;margin-bottom:18px">'}${esc(s.h.title).replace(/ (\S+)$/, '&nbsp;$1')}${i === 0 ? '</h1>' : '</h2>'}
               <p>${esc(s.h.text)}</p>
               <div class="hero__cta"><a class="btn" href="${JO.url.shop(s.h.key)}">${esc(s.h.cta)} ${ic('arrow')}</a><a class="btn btn--outline" href="shop.html">All jerseys</a></div>
             </div>
             <div class="hero__media">
-              ${s.picks.map((p, k) => `<a class="hero__img" href="${JO.url.product(p)}" tabindex="${i ? -1 : 0}" aria-label="${esc(p.t)}">${JO.imgTag(p.i[0], { widths: [360, 540, 760], sizes: '(min-width:900px) 27vw, 42vw', alt: p.t, eager: i === 0 })}</a>`).join('')}
+              ${s.picks.map((p, k) => `<a class="hero__img" href="${JO.url.product(p)}" tabindex="${i ? -1 : 0}" aria-label="${esc(p.t)}">${JO.imgTag(p.i[0], { widths: [360, 540, 760], sizes: '(min-width:900px) 27vw, 33vw', alt: p.t, eager: i === 0 })}</a>`).join('')}
             </div>
           </article>`
           )
@@ -42,7 +42,7 @@
       </div>
       <div class="hero__ui">
         <button class="hero__arrow" type="button" data-hero="-1" aria-label="Previous slide">${ic('chevL')}</button>
-        <div class="hero__dots" role="tablist" aria-label="Choose slide">${heroSlides.map((s, i) => `<button class="hero__dot${i === 0 ? ' is-active' : ''}" type="button" role="tab" aria-label="Slide ${i + 1}" data-dot="${i}"></button>`).join('')}</div>
+        <div class="hero__dots" role="group" aria-label="Choose slide">${heroSlides.map((s, i) => `<button class="hero__dot${i === 0 ? ' is-active' : ''}" type="button" aria-label="Slide ${i + 1}" aria-current="${i === 0}" data-dot="${i}"></button>`).join('')}</div>
         <button class="hero__arrow" type="button" data-hero="1" aria-label="Next slide">${ic('chevR')}</button>
       </div>
     </section>`;
@@ -56,8 +56,8 @@
           ${CFG.categories
             .map((c, i) => {
               const im = JO.catImage(c.key);
-              return `<a class="tile" href="${JO.url.shop(c.key)}" data-reveal style="--i:${i % 5}">
-                <div class="tile__img">${im ? JO.imgTag(im, { widths: [260, 400, 560], sizes: '(min-width:1100px) 20vw, (min-width:700px) 25vw, 50vw', alt: c.title }) : ''}<span class="tile__count pill">${JO.catCount(c.key)}</span></div>
+              return `<a class="tile" href="${JO.url.shop(c.key)}" data-reveal style="--i:${i % 6}">
+                <div class="tile__img">${im ? JO.imgTag(im, { widths: [260, 400, 560], sizes: '(min-width:1100px) 17vw, (min-width:700px) 25vw, 33vw', alt: c.title }) : ''}<span class="tile__count pill">${JO.catCount(c.key)}</span></div>
                 <span class="tile__name">${esc(c.title)}</span>
               </a>`;
             })
@@ -75,7 +75,7 @@
       <div class="wrap">
         <div class="sec-head"><div><h2 id="${id}">${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</div>
           <div class="sec-head__r">${JO.railNav()}<a class="link-arrow" href="${JO.url.shop(key)}">View all ${ic('arrow')}</a></div></div>
-        ${JO.rail(list.map((p, i) => JO.card(p, { reveal: false, sizes: '(min-width:1100px) 24vw, (min-width:700px) 32vw, 66vw' })).join(''))}
+        ${JO.rail(list.map((p, i) => JO.card(p, { reveal: false, sizes: JO.RAIL_SIZES })).join(''))}
       </div>
     </section>`;
   };
@@ -86,7 +86,22 @@
     return `<div class="band" aria-hidden="true"><div class="band__track">${one.repeat(2)}${one.repeat(2)}</div></div>`;
   })();
 
-  const retroPicks = JO.catProducts('retro', 20).filter((p) => p.i[0].w / p.i[0].h < 0.8).slice(2, 4);
+  /* ---------- surprise jersey (design only, see CFG.wildcard) ---------- */
+  const W = CFG.wildcard;
+  const wildHtml = W
+    ? `
+    <section class="wild" aria-labelledby="wild-t">
+      <div class="wild__art"><img src="${W.image}" alt="An open gift box with a surprise jersey rising out of it" width="600" height="500" loading="lazy" decoding="async"></div>
+      <div class="wild__copy" data-reveal>
+        <p class="eyebrow">${esc(W.name)}</p>
+        <h2 id="wild-t">${esc(W.title)}</h2>
+        <p>One <strong>random jersey</strong> inside. We pick the kit, you enjoy the surprise. Limited to <strong>${W.dailyLimit} customers a day</strong>!</p>
+        <button class="btn" type="button" data-wild>${esc(W.button)} ${ic('arrow')}</button>
+      </div>
+    </section>`
+    : '';
+
+  const retroPicks =JO.catProducts('retro', 20).filter((p) => p.i[0].w / p.i[0].h < 0.8).slice(2, 4);
   const bannerHtml = `
     <section class="section section--tight">
       <div class="wrap">
@@ -106,7 +121,7 @@
     <section class="section section--tight" aria-label="Why Jersey Orbit">
       <div class="wrap"><div class="usps">
         <div class="usp" data-reveal style="--i:0"><div class="usp__ic">${ic('sparkle')}</div><h3>Premium quality</h3><p>Dot-knit fabric and detailed stitching — made to look as good in the street as on the pitch.</p></div>
-        <div class="usp" data-reveal style="--i:1"><div class="usp__ic">${ic('truck')}</div><h3>Fast delivery</h3><p>Kerala in 2–3 days, rest of India in 5–10 days. Dispatched within 24 hours.</p></div>
+        <div class="usp" data-reveal style="--i:1"><div class="usp__ic">${ic('truck')}</div><h3>Fast delivery</h3><p>Kerala in 2–5 days, rest of India in 5–9 days. Dispatched within 24 hours.</p></div>
         <div class="usp" data-reveal style="--i:2"><div class="usp__ic">${ic('bag')}</div><h3>Easy ordering</h3><p>Pick your jerseys, add your address and send the order to us on WhatsApp.</p></div>
         <div class="usp" data-reveal style="--i:3"><div class="usp__ic">${ic('whatsapp')}</div><h3>Real human support</h3><p>Questions about size or stock? Chat with us on WhatsApp — we’re happy to help.</p></div>
       </div></div>
@@ -115,8 +130,8 @@
   const reviewsHtml = `
     <section class="section section--soft" aria-labelledby="rev-t">
       <div class="wrap">
-        <div class="sec-head"><div><h2 id="rev-t">What our customers say</h2><p>Real messages from our WhatsApp and Instagram chats.</p></div><div class="sec-head__r">${JO.railNav()}<a class="link-arrow" href="reviews.html">All reviews ${ic('arrow')}</a></div></div>
-        ${JO.rail(CFG.chatReviews.map(JO.chatCard).join(''), 'rail--chats')}
+        <div class="sec-head"><div><h2 id="rev-t">What our customers say</h2><p>Real messages from our WhatsApp and Instagram chats, plus Google reviews.</p></div><div class="sec-head__r">${JO.railNav()}<a class="link-arrow" href="reviews.html">All reviews ${ic('arrow')}</a></div></div>
+        ${JO.rail(CFG.chatReviews.map(JO.chatCard).join('') + CFG.reviews.map((r, i) => (r.slider ? JO.revSlide(r, i) : '')).join(''), 'rail--chats')}
       </div>
     </section>`;
 
@@ -136,6 +151,7 @@
     heroHtml +
     tilesHtml +
     railSection('nd-t', 'New drops', 'Fresh in — grab your size before it’s gone.', 'new-drops', 12) +
+    wildHtml +
     bandHtml +
     railSection('kit-t', '2026/27 kits', 'The new season’s home, away & third shirts.', '2026-27', 12) +
     bannerHtml +
@@ -145,9 +161,18 @@
     storyHtml +
     JO.newsBand();
 
+  if (matchMedia('(max-width:699px)').matches) {
+    const usps = $('.usps');
+    usps.tabIndex = 0;
+    usps.setAttribute('role', 'group');
+    usps.setAttribute('aria-label', 'Why shop with us, swipe sideways');
+  }
   JO.initRails(main);
   JO.reveal(main);
   JO.markLoaded(main);
+
+  const wildBtn = $('[data-wild]');
+  wildBtn && wildBtn.addEventListener('click', () => JO.toast(`${W.name} ordering opens soon`, 'sparkle'));
 
   /* ---------- hero behaviour ---------- */
   const hero = $('.hero');
@@ -170,7 +195,7 @@
         d.classList.remove('is-active');
         void d.offsetWidth; // restart the progress animation
         d.classList.toggle('is-active', k === cur);
-        d.setAttribute('aria-selected', String(k === cur));
+        d.setAttribute('aria-current', String(k === cur));
       });
     };
     if (!reduced) hero.addEventListener('animationend', (e) => e.target.classList.contains('hero__dot') && e.target.classList.contains('is-active') && go(cur + 1));

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500" width="600" height="500">
+  <defs>
+    <radialGradient id="floor"><stop offset="0" stop-color="#0c1a3d" stop-opacity=".28"/><stop offset="1" stop-color="#0c1a3d" stop-opacity="0"/></radialGradient>
+    <linearGradient id="shirt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffa6dc"/><stop offset="1" stop-color="#f65cb6"/></linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22428c"/><stop offset="1" stop-color="#162c63"/></linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#162c63"/><stop offset="1" stop-color="#0c1a3d"/></linearGradient>
+  </defs>
+
+  <ellipse cx="300" cy="458" rx="230" ry="32" fill="url(#floor)"/>
+
+  <!-- orbit ring, back half -->
+  <path d="M38 300A262 78 0 0 1 562 300" transform="rotate(-10 300 300)" fill="none" stroke="#ff8cd2" stroke-width="5" stroke-linecap="round" opacity=".55"/>
+
+  <!-- back flaps and inside of the box -->
+  <path d="M150 275 300 220 256 184 106 239Z" fill="#1b3474"/>
+  <path d="M300 220 450 275 494 239 344 184Z" fill="#22428c"/>
+  <path d="M150 275 300 220 450 275 300 330Z" fill="#081230"/>
+
+  <!-- jersey rising out of the box -->
+  <path d="M262 106 232 116 184 162 214 202 236 184V348H364V184L386 202 416 162 368 116 338 106C332 126 317 135 300 135S268 126 262 106Z" fill="url(#shirt)"/>
+  <path d="M262 106C268 126 283 135 300 135S332 126 338 106" fill="none" stroke="#14295c" stroke-width="8" stroke-linecap="round"/>
+  <path d="M188 159 218 199M412 159 382 199" fill="none" stroke="#14295c" stroke-width="9"/>
+  <path d="M272 204C272 183 285 170 302 170S331 182 331 201C331 217 319 223 310 230 302 237 300 243 300 254" fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="300" cy="284" r="11" fill="#fff"/>
+
+  <!-- front faces and ribbon -->
+  <path d="M150 275 300 330V455L150 400Z" fill="url(#left)"/>
+  <path d="M300 330 450 275V400L300 455Z" fill="url(#right)"/>
+  <path d="M207 296 243 309V434L207 421Z" fill="#b4f55f"/>
+  <path d="M357 309 393 296V421L357 434Z" fill="#9fe446"/>
+
+  <!-- front flaps -->
+  <path d="M150 275 300 330 256 366 106 311Z" fill="#2c52a8"/>
+  <path d="M300 330 450 275 494 311 344 366Z" fill="#22428c"/>
+
+  <!-- orbit ring, front half, with a small planet -->
+  <g transform="rotate(-10 300 300)">
+    <path d="M562 300A262 78 0 0 1 38 300" fill="none" stroke="#ff8cd2" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="470" cy="359" r="13" fill="#b4f55f" stroke="#14295c" stroke-width="4"/>
+  </g>
+
+  <!-- lid, lifted off -->
+  <g transform="rotate(16 432 84)">
+    <path d="M327 72 432 110V138L327 100Z" fill="#1d3880"/>
+    <path d="M432 110 537 72V100L432 138Z" fill="#11224f"/>
+    <path d="M327 72 432 34 537 72 432 110Z" fill="#2c52a8"/>
+    <path d="M362 59.300 388 49.900 493 87.900 467 97.300Z" fill="#b4f55f"/>
+    <path d="M467 97.300 493 87.900V115.900L467 125.300Z" fill="#7cc22f"/>
+    <path d="M431 68C405 70 372 52 380 36 390 20 424 42 431 68Z" fill="#b4f55f" stroke="#7cc22f" stroke-width="3"/>
+    <path d="M431 68C457 66 489 44 480 29 469 14 437 40 431 68Z" fill="#9fe446" stroke="#7cc22f" stroke-width="3"/>
+    <circle cx="431" cy="68" r="11" fill="#b4f55f" stroke="#7cc22f" stroke-width="3"/>
+  </g>
+
+  <!-- sparkles -->
+  <g fill="#ff8cd2">
+    <path d="M118 126q4 21 25 25-21 4-25 25-4-21-25-25 21-4 25-25Z"/>
+    <path d="M514 204q3 13 16 16-13 3-16 16-3-13-16-16 13-3 16-16Z"/>
+  </g>
+  <g fill="#9fe446">
+    <path d="M186 62q3 14 17 17-14 3-17 17-3-14-17-17 14-3 17-17Z"/>
+    <path d="M84 232q2 10 12 12-10 2-12 12-2-10-12-12 10-2 12-12Z"/>
+  </g>
+  <g fill="#14295c">
+    <circle cx="154" cy="212" r="5"/>
+    <circle cx="470" cy="164" r="4"/>
+    <circle cx="238" cy="52" r="4"/>
+    <circle cx="540" cy="360" r="5"/>
+  </g>
+</svg>

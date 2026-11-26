@@ -56,6 +56,22 @@
   /* ---------- catalog ---------- */
   const products = DATA.products;
   JO.products = products;
+
+  /* ---------- sleeve length ----------
+     The catalog has no sleeve field, so it is read from the title and the "Fit:" line:
+     "long sleeve" or "full sleeve" -> full-sleeve; "five sleeve" -> neither (it has its own category);
+     every other jersey -> half-sleeve. Socks are skipped. */
+  const SLEEVE_KEYS = ['full-sleeve', 'half-sleeve'];
+  SLEEVE_KEYS.forEach((k) => (DATA.collections[k] = 0));
+  products.forEach((p) => {
+    if (p.k.includes('socks')) return;
+    const text = [p.t, ...p.d.filter((l) => /^fit:/i.test(l))].join(' | ');
+    if (/five[\s-]*sleeve/i.test(text)) return;
+    const key = /(long|full)[\s-]*sleeve/i.test(text) ? 'full-sleeve' : 'half-sleeve';
+    p.k.push(key);
+    DATA.collections[key]++;
+  });
+
   const byId = new Map(),
     byHandle = new Map(),
     byVid = new Map();
@@ -104,7 +120,7 @@
       .map((q) => {
         let s = 0;
         toks(q.t).forEach((x) => mine.has(x) && (s += 3));
-        q.k.forEach((k) => p.k.includes(k) && k !== 'all' && k !== 'new-drops' && (s += 0.6));
+        q.k.forEach((k) => p.k.includes(k) && k !== 'all' && k !== 'new-drops' && !SLEEVE_KEYS.includes(k) && (s += 0.6));
         if (q.a) s += 0.5;
         return { q, s };
       })
@@ -153,6 +169,11 @@
     out.sort((a, b) => b.score - a.score || a.p.o - b.p.o);
     return out.slice(0, limit).map((x) => x.p);
   };
+
+  /* ---------- shipping fee (lines = cart lines or "buy it now" lines) ---------- */
+  JO.jerseyCount = (lines) => lines.reduce((n, l) => n + (l.p.k.includes('socks') ? 0 : l.qty), 0);
+  JO.freeShip = (lines) => CFG.freeShippingJerseys > 0 && JO.jerseyCount(lines) >= CFG.freeShippingJerseys;
+  JO.shippingFee = (lines) => (JO.freeShip(lines) ? 0 : CFG.shippingFee);
 
   /* ---------- delivery estimate (business days, Mon–Sat) ---------- */
   JO.addBizDays = (from, n) => {

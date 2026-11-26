@@ -13,6 +13,8 @@
     user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.2-6.5 8-6.5s7 2 8 6.5"/>',
     menu: '<path d="M4 7h16M4 12h10M4 17h16"/>',
     x: '<path d="m6 6 12 12M18 6 6 18"/>',
+    pause: '<path d="M9 5v14M15 5v14"/>',
+    play: '<path d="M8 5.5 18 12 8 18.5v-13Z"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     minus: '<path d="M5 12h14"/>',
     arrow: '<path d="M5 12h14m-6-6 6 6-6 6"/>',
@@ -62,18 +64,38 @@
     }, 2600);
   };
 
+  /* show or clear a form field's error, and tell screen readers about it */
+  JO.markField = (input, bad) => {
+    const field = input.closest('.field'),
+      err = $('.err', field);
+    field.classList.toggle('is-err', bad);
+    input.setAttribute('aria-invalid', String(bad));
+    if (!err) return;
+    err.id = err.id || input.id + '-err';
+    if (bad) input.setAttribute('aria-describedby', err.id);
+    else input.removeAttribute('aria-describedby');
+  };
+
   /* ---------- reusable fragments ---------- */
   JO.stars = (n = 5) => `<span class="stars" role="img" aria-label="${n} out of 5 stars">${STAR.repeat(n)}</span>`;
 
   JO.priceHtml = (p) => {
     const off = JO.pct(p);
-    return `<span class="price${off ? ' price--sale' : ''}"><span class="now">${money(p.p)}</span>${off ? `<s>${money(p.c)}</s>` : ''}</span>`;
+    return `<span class="price${off ? ' price--sale' : ''}"><span class="now">${money(p.p)}</span>${off ? `<s><span class="sr-only">Original price </span>${money(p.c)}</s>` : ''}</span>`;
   };
+
+  /* the second photo only shows on mouse hover, so touch-only devices don't download it */
+  const canHover = matchMedia('(hover: hover)').matches;
+
+  /* "sizes" for product cards. Below 1100px it deliberately says 33vw even where a card is wider: that keeps
+     3x phone screens on the 480px photo (still about 1.9x sharp or better) instead of the 1200px one. */
+  JO.CARD_SIZES = '(min-width:1100px) 25vw, 33vw';
+  JO.RAIL_SIZES = '(min-width:1100px) 24vw, 33vw';
 
   JO.card = (p, o = {}) => {
     const oos = !p.a,
       off = JO.pct(p),
-      i2 = p.i[1];
+      i2 = canHover ? p.i[1] : null;
     const sizes = p.v;
     const single = sizes.length === 1;
     const badges = oos ? '<span class="pill pill--oos">Sold out</span>' : (off ? `<span class="pill pill--sale">-${off}%</span>` : '') + (JO.isNew(p) ? '<span class="pill pill--new">New</span>' : '');
@@ -85,17 +107,17 @@
          <div class="quick" role="group" aria-label="Choose a size"><div class="quick__label">Quick add — choose size</div><div class="sizes">${sizes
            .map((v) => `<button type="button" class="size${v.a ? '' : ' is-oos'}" ${v.a ? `data-add="${v.id}"` : 'disabled aria-disabled="true" title="Sold out"'}>${esc(v.s)}</button>`)
            .join('')}</div></div>`;
-    const sz = o.sizes || '(min-width:1100px) 25vw, (min-width:700px) 33vw, 50vw';
+    const sz = o.sizes || JO.CARD_SIZES;
     return `<article class="card${oos ? ' is-soldout' : ''}${i2 ? '' : ' has-one'}" ${o.reveal === false ? '' : `data-reveal style="--i:${(o.index || 0) % 4}"`}>
       <div class="card__top">
-        <a class="card__media" href="${JO.url.product(p)}" aria-label="${esc(p.t)}">
+        <a class="card__media" href="${JO.url.product(p)}" tabindex="-1" aria-hidden="true">
           ${JO.imgTag(p.i[0], { cls: 'card__img card__img--1', sizes: sz, alt: p.t, eager: o.eager })}
           ${i2 ? JO.imgTag(i2, { cls: 'card__img card__img--2', sizes: sz, alt: '' }) : ''}
           <span class="card__badges">${badges}</span>
         </a>
         ${quick}
       </div>
-      <div class="card__body"><h3 class="card__title"><a href="${JO.url.product(p)}">${esc(p.t)}</a></h3>${JO.priceHtml(p)}</div>
+      <div class="card__body"><h3 class="card__title"><a href="${JO.url.product(p)}">${esc(p.t)}${oos ? '<span class="sr-only">, sold out</span>' : ''}</a></h3>${JO.priceHtml(p)}</div>
     </article>`;
   };
 
@@ -158,7 +180,20 @@
   let overlay,
     openLayerEl = null,
     lastFocus = null;
-  const focusables = (el) => $$('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])', el).filter((n) => n.offsetParent !== null || n === document.activeElement);
+  const focusables = (el) => $$('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])', el).filter((n) => (n.offsetParent !== null && getComputedStyle(n).visibility !== 'hidden') || n === document.activeElement);
+  /* While a popup is open the page behind it is switched off ("inert"), so keyboard and screen-reader focus
+     can't wander into it. A Tab trap alone isn't enough: Safari skips links when tabbing. */
+  let switchedOff = [];
+  const wakePage = () => {
+    switchedOff.forEach((n) => (n.inert = false));
+    switchedOff = [];
+  };
+  const sleepPage = (keep) => {
+    wakePage();
+    switchedOff = Array.from(document.body.children).filter((n) => !n.contains(keep) && !n.inert && !n.matches('.overlay, .toast-host, script'));
+    switchedOff.forEach((n) => (n.inert = true));
+  };
+
   JO.open = (el, { overlayOn = true, focus } = {}) => {
     if (!el || el.classList.contains('is-open')) return;
     if (openLayerEl && openLayerEl !== el) JO.close(openLayerEl, true);
@@ -173,9 +208,13 @@
     lockHtml.classList.add('is-locked');
     openLayerEl = el;
     el._overlay = overlayOn;
-    setTimeout(() => {
-      const f = (focus && $(focus, el)) || focusables(el)[0];
+    sleepPage(el);
+    setTimeout(function moveFocus(tries = 0) {
+      // skip matches that can't take focus (a popup's dark backdrop also carries data-close)
+      const f = (focus && $$(focus, el).find((n) => n.matches('a[href],button,input,select,textarea,[tabindex]'))) || focusables(el)[0];
       f && f.focus({ preventScroll: true });
+      // some browsers need another moment before a newly shown element can take focus
+      if (f && document.activeElement !== f && openLayerEl === el && Number(tries) < 5) setTimeout(moveFocus, 90, Number(tries) + 1);
     }, 60);
     JO.emit('layer', { el, open: true });
   };
@@ -184,10 +223,11 @@
     if (!el || !el.classList.contains('is-open')) return;
     el.classList.remove('is-open');
     el.setAttribute('aria-hidden', 'true');
-    setTimeout(() => !el.classList.contains('is-open') && el.setAttribute('inert', ''), 520);
     if (el._overlay) overlay.classList.remove('is-open');
     if (openLayerEl === el) {
       openLayerEl = null;
+      wakePage();
+      el.setAttribute('inert', '');
       if (!silent) {
         lockHtml.classList.remove('is-locked');
         lastFocus && lastFocus.focus && lastFocus.focus({ preventScroll: true });
@@ -204,7 +244,8 @@
       if (!f.length) return;
       const first = f[0],
         last = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === first) (e.preventDefault(), last.focus());
+      if (!openLayerEl.contains(document.activeElement)) (e.preventDefault(), first.focus());
+      else if (e.shiftKey && document.activeElement === first) (e.preventDefault(), last.focus());
       else if (!e.shiftKey && document.activeElement === last) (e.preventDefault(), first.focus());
     }
   });
@@ -213,19 +254,19 @@
   const navHtml = CFG.nav
     .map((n) =>
       n.mega
-        ? `<button class="hdr__link" type="button" data-mega aria-expanded="false" aria-controls="mega" ${page === n.page ? 'aria-current="page"' : ''}>${n.label}${ic('chev')}</button>`
+        ? `<button class="hdr__link" type="button" data-mega aria-expanded="false" aria-controls="mega" ${page === n.page ? 'aria-current="page"' : ''}>${n.label}${ic('chev')}</button><div class="mega" id="mega" role="group" aria-label="Catalog categories"><div class="mega__inner"></div></div>`
         : `<a class="hdr__link" href="${n.href}" ${page === n.page ? 'aria-current="page"' : ''}>${n.label}</a>`
     )
     .join('');
 
   const marquee = (() => {
-    const set = CFG.announcements.map((t) => `<span class="announce__item">${esc(t)}</span>`).join('');
-    return set.repeat(3) + set.repeat(3); // two identical halves → seamless -50% loop
+    const set = (hide) => CFG.announcements.map((t) => `<span class="announce__item"${hide ? ' aria-hidden="true"' : ''}>${esc(t)}</span>`).join('');
+    return set(false) + set(true).repeat(5); // two identical halves → seamless -50% loop; screen readers hear one set
   })();
 
   const shellTop = `
     <a class="skip" href="#main">Skip to content</a>
-    <div class="announce" role="region" aria-label="Announcements"><div class="announce__track">${marquee}</div></div>
+    <div class="announce" role="region" aria-label="Announcements"><div class="announce__track">${marquee}</div><button class="announce__pause" type="button" data-motion aria-pressed="false" aria-label="Pause moving content">${ic('pause')}</button></div>
     <header class="hdr" id="hdr">
       <div class="hdr__inner">
         <button class="icon-btn hdr__burger" type="button" data-open="menu" aria-label="Open menu">${ic('menu')}</button>
@@ -236,13 +277,12 @@
           <button class="icon-btn" type="button" data-open="cart" aria-label="Open cart">${ic('bag')}<span class="badge" data-cart-count>0</span></button>
         </div>
       </div>
-      <div class="mega" id="mega" aria-label="Catalog"><div class="mega__inner"></div></div>
     </header>`;
 
   const shellBottom = `
     <div class="overlay" id="overlay"></div>
 
-    <aside class="drawer drawer--left" id="menu" role="dialog" aria-modal="true" aria-label="Menu" inert>
+    <div class="drawer drawer--left" id="menu" role="dialog" aria-modal="true" aria-label="Menu" inert>
       <div class="drawer__head"><a href="index.html" class="hdr__logo" style="height:44px"><img src="${CFG.brand.logo}" alt="${CFG.brand.name}" width="74" height="44"></a><button class="icon-btn" type="button" data-close aria-label="Close menu">${ic('x')}</button></div>
       <div class="drawer__body" style="padding:0"><nav class="mnav" aria-label="Mobile">
         ${CFG.nav
@@ -255,19 +295,20 @@
           .join('')}
       </nav></div>
       <div class="mnav__foot"><a class="btn btn--block" href="${JO.wa('Hi Jersey Orbit!')}" target="_blank" rel="noopener">${ic('whatsapp')} Chat on WhatsApp</a><a class="btn btn--outline btn--block" href="${CFG.contact.instagram}" target="_blank" rel="noopener">${ic('instagram')} ${CFG.contact.instagramHandle}</a></div>
-    </aside>
+    </div>
 
-    <aside class="drawer drawer--right" id="cart" role="dialog" aria-modal="true" aria-label="Shopping cart" inert>
+    <div class="drawer drawer--right" id="cart" role="dialog" aria-modal="true" aria-label="Shopping cart" inert>
       <div class="drawer__head"><h2 class="drawer__title">Your cart <small data-cart-label></small></h2><button class="icon-btn" type="button" data-close aria-label="Close cart">${ic('x')}</button></div>
       <div class="drawer__body" data-cart-body></div>
       <div class="drawer__foot" data-cart-foot></div>
-    </aside>
+    </div>
 
     <section class="search" id="search" role="dialog" aria-modal="true" aria-label="Search" inert>
       <form class="search__bar" action="shop.html" method="get" role="search">
         <label class="search__field"><span class="sr-only">Search jerseys</span>${ic('search')}<input type="search" name="q" placeholder="Search jerseys, teams, players" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></label>
         <button class="icon-btn" type="button" data-close aria-label="Close search">${ic('x')}</button>
       </form>
+      <p class="sr-only" role="status" data-search-status></p>
       <div class="search__body" data-search-body></div>
     </section>
 
@@ -278,7 +319,7 @@
       <button type="button" data-open="cart">${ic('bag')}Cart<span class="badge" data-cart-count>0</span></button>
     </nav>
 
-    <a class="wa" href="${JO.wa('Hi Jersey Orbit! I have a question.')}" target="_blank" rel="noopener" aria-label="Chat with us on WhatsApp">${ic('whatsapp')}</a>
+    <aside aria-label="WhatsApp chat"><a class="wa" href="${JO.wa('Hi Jersey Orbit! I have a question.')}" target="_blank" rel="noopener" aria-label="Chat with us on WhatsApp">${ic('whatsapp')}</a></aside>
     <div class="toast-host" aria-live="polite"></div>`;
 
   const footer = `
@@ -295,10 +336,10 @@
               <a href="mailto:${CFG.contact.email}" aria-label="Email">${ic('mail')}</a>
             </div>
           </div>
-          <div><h4>Shop</h4><ul>${CFG.categories.slice(0, 7).map((c) => `<li><a href="${JO.url.shop(c.key)}">${esc(c.title)}</a></li>`).join('')}</ul></div>
-          <div><h4>Help</h4><ul>
+          <div><h2 class="ftr__h">Shop</h2><ul>${CFG.categories.slice(0, 9).map((c) => `<li><a href="${JO.url.shop(c.key)}">${esc(c.title)}</a></li>`).join('')}</ul></div>
+          <div><h2 class="ftr__h">Help</h2><ul>
             <li><a href="track.html">Order Tracking</a></li><li><a href="faq.html">FAQ</a></li><li><a href="contact.html">Contact Us</a></li><li><a href="reviews.html">Reviews</a></li><li><a href="about.html">About Us</a></li></ul></div>
-          <div><h4>Policies</h4><ul>
+          <div><h2 class="ftr__h">Policies</h2><ul>
             <li><a href="policies.html?p=shipping">Shipping Policy</a></li><li><a href="policies.html?p=refund">Refund Policy</a></li></ul>
             <p style="margin-top:18px;font-size:13px"><span style="white-space:nowrap">WhatsApp ${CFG.contact.whatsappDisplay}</span><br>${CFG.contact.email}</p></div>
         </div>
@@ -341,6 +382,27 @@
       <span class="chat__body"><span class="chat__quote">${esc(r.quote)}</span><span class="chat__via">${icon} ${r.via}<b>View chat</b></span></span>
     </button>`;
   };
+
+  /* small Google review card for the home slider (i = index in CFG.reviews); the full review opens on click */
+  JO.revSlide = (r, i) => `<button class="chat" type="button" data-review="${i}">
+      <span class="chat__thumb">${r.photo ? `<img src="${r.photo}" alt="" width="64" height="64" loading="lazy" decoding="async">` : GOOGLE}</span>
+      <span class="chat__body"><span class="chat__quote">${esc(r.text)}</span><span class="chat__via">${GOOGLE} Google<b>Read review</b></span></span>
+    </button>`;
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-review]');
+    if (!t) return;
+    let m = $('#revpop');
+    if (!m) {
+      document.body.insertAdjacentHTML('beforeend', `<div class="modal revpop" id="revpop" role="dialog" aria-modal="true" aria-label="Customer review" inert><div class="modal__bg" data-close></div><div class="modal__box"><button class="icon-btn modal__x" type="button" data-close aria-label="Close">${ic('x')}</button><div data-revbody></div></div></div>`);
+      m = $('#revpop');
+    }
+    $('[data-revbody]', m).innerHTML = JO.revCard(CFG.reviews[t.dataset.review]);
+    JO.markLoaded(m);
+    JO.open(m, { overlayOn: false, focus: '[data-close]' });
+  });
+
+  /* full Google review card, used on the reviews page and in the popup above */
+  JO.revCard = (r) => `<figure class="rev" style="margin:0">${JO.stars(5)}<q>${esc(r.text)}</q>${r.photo ? `<button class="rev__photo" type="button" data-zoom="${r.photo}" data-alt="Photo posted with ${esc(r.name)}’s review" aria-label="Enlarge the photo posted with this review"><img src="${r.photo}" alt="" loading="lazy" decoding="async"></button>` : ''}<div class="rev__by"><span class="rev__av">${esc(r.name[0])}</span><div><div class="rev__name">${esc(r.name)}</div><div class="rev__src">${JO.GOOGLE} From Google Reviews</div></div></div></figure>`;
 
   /* ---------- mount shell ---------- */
   document.body.insertAdjacentHTML('afterbegin', shellTop);
@@ -388,11 +450,32 @@
     megaBtn.addEventListener('click', () => (mega.classList.contains('is-open') ? megaClose(0) : megaOpen()));
     hdr.addEventListener('mouseleave', () => matchMedia('(hover:hover)').matches && megaClose());
     mega.addEventListener('mouseenter', () => clearTimeout(megaT));
-    document.addEventListener('keydown', (e) => e.key === 'Escape' && megaClose(0));
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || !mega.classList.contains('is-open')) return;
+      const hadFocus = mega.contains(document.activeElement);
+      megaClose(0);
+      hadFocus && megaBtn.focus();
+    });
+    // keyboard users who tab past the menu close it
+    document.addEventListener('focusin', (e) => e.target !== megaBtn && !mega.contains(e.target) && mega.classList.contains('is-open') && megaClose(0));
     document.addEventListener('click', (e) => !hdr.contains(e.target) && megaClose(0));
     // warm the tile images shortly after load so the first hover is instant
     window.requestIdleCallback ? requestIdleCallback(buildMega, { timeout: 3000 }) : setTimeout(buildMega, 1800);
   }
+
+  /* pause button: stops the announcement strip, the home banner strip and the home slideshow */
+  const motionBtn = $('[data-motion]');
+  const setStill = (still) => {
+    document.documentElement.classList.toggle('is-still', still);
+    motionBtn.setAttribute('aria-pressed', String(still));
+    motionBtn.innerHTML = ic(still ? 'play' : 'pause');
+  };
+  setStill(JO.store.get('jo_still_v1', false) === true);
+  motionBtn.addEventListener('click', () => {
+    const still = !document.documentElement.classList.contains('is-still');
+    JO.store.set('jo_still_v1', still);
+    setStill(still);
+  });
 
   /* header: hide on scroll down, show on scroll up */
   let lastY = scrollY,
@@ -471,7 +554,7 @@
             <output>${l.qty}</output>
             <button type="button" data-inc="${l.vid}" aria-label="Increase quantity" ${l.qty >= JO.cart.MAX_QTY ? 'disabled' : ''}>${ic('plus')}</button>
           </div>
-          <div class="line__price">${money(l.price * l.qty)}${l.compare ? `<s>${money(l.compare * l.qty)}</s>` : ''}</div>
+          <div class="line__price">${money(l.price * l.qty)}${l.compare ? `<s><span class="sr-only">Original price </span>${money(l.compare * l.qty)}</s>` : ''}</div>
         </div>
         ${l.oos ? '<p class="line__warn">This size is currently sold out — it may not be available at checkout.</p>' : ''}
       </div>
@@ -484,19 +567,31 @@
     return `<div class="totals">
       ${save ? `<div class="save"><span>You save</span><span>${money(save)}</span></div>` : ''}
       <div class="grand"><span>Subtotal</span><span>${money(sub)}</span></div>
-      <small>Shipping: flat ${money(CFG.shipping.kerala.fee)} in Kerala, ${money(CFG.shipping.india.fee)} for the rest of India — confirmed at checkout.</small>
+      <small>${JO.freeShip(JO.cart.lines()) ? 'Shipping is free on this order.' : `Shipping: flat ${money(CFG.shippingFee)} all over India, added at checkout.`}</small>
     </div>`;
   };
 
   JO.shipBarHtml = () => {
-    const thr = CFG.freeShippingThreshold;
-    if (!thr) return '';
-    const sub = JO.cart.subtotal(),
-      left = Math.max(0, thr - sub);
-    return `<div class="ship-bar">${left ? `Add <b>${money(left)}</b> more for free shipping` : '<b>🎉 You’ve unlocked free shipping!</b>'}<div class="ship-bar__track"><div class="ship-bar__fill" style="width:${Math.min(100, (sub / thr) * 100)}%"></div></div></div>`;
+    const need = CFG.freeShippingJerseys;
+    if (!need) return '';
+    const have = JO.jerseyCount(JO.cart.lines()),
+      left = Math.max(0, need - have);
+    return `<div class="ship-bar">${left ? `Add <b>${left} more jersey${left > 1 ? 's' : ''}</b> for free shipping` : '<b>🎉 You’ve unlocked free shipping!</b>'}<div class="ship-bar__track"><div class="ship-bar__fill" style="width:${Math.min(100, (have / need) * 100)}%"></div></div></div>`;
   };
 
   JO.noteHtml = () => `<button type="button" class="note-toggle" data-note-toggle>${JO.cart.note ? 'Edit order note' : 'Add an order note'}</button><textarea class="note-box${JO.cart.note ? ' is-open' : ''}" data-note placeholder="Anything we should know? (e.g. name/number on the jersey, delivery notes)" aria-label="Order note" maxlength="500">${esc(JO.cart.note)}</textarea>`;
+
+  /** call before redrawing `box`; call the result afterwards to put keyboard focus back on the same +, − or remove button */
+  JO.holdFocus = (box) => {
+    const a = document.activeElement;
+    const sel = box.contains(a) && ['data-inc', 'data-dec', 'data-remove'].filter((n) => a.hasAttribute(n)).map((n) => `[${n}="${a.getAttribute(n)}"]`)[0];
+    return () => {
+      if (!sel) return;
+      const again = $(sel, box);
+      const to = again && !again.disabled ? again : $('a[href],button:not([disabled])', box);
+      to && to.focus({ preventScroll: true });
+    };
+  };
 
   function renderCart() {
     const lines = JO.cart.lines(),
@@ -511,7 +606,9 @@
         b.classList.add('is-bump');
       }
     });
+    $$('[data-open="cart"]').forEach((b) => b.setAttribute('aria-label', n ? `Open cart, ${n} item${n === 1 ? '' : 's'}` : 'Open cart'));
     $('[data-cart-label]').textContent = n ? `(${n})` : '';
+    const refocus = JO.holdFocus(cartBody);
     if (!lines.length) {
       cartBody.innerHTML = `<div class="empty"><div class="empty__art">${ic('bag')}</div><h3>Your cart is empty</h3><p>Looks like you haven’t picked a jersey yet.</p><a class="btn" href="shop.html">Continue shopping ${ic('arrow')}</a></div>`;
       cartFoot.innerHTML = '';
@@ -522,6 +619,7 @@
       cartFoot.innerHTML = `${JO.noteHtml()}${JO.cartTotalsHtml()}
         <div class="foot-actions"><a class="btn btn--block" href="${JO.cart.checkoutUrl()}" data-checkout>Checkout ${ic('arrow')}</a><a class="btn btn--outline btn--block" href="cart.html">View cart</a></div>`;
     }
+    refocus();
     JO.markLoaded(cartBody);
     JO.emit('cart-rendered');
     justAdded = null;
@@ -576,17 +674,20 @@
       <div class="sres">${trending.map(resRow).join('')}</div>`;
     JO.markLoaded(sBody);
   }
-  const resRow = (p) => `<a href="${JO.url.product(p)}" role="option"><span class="sres__img">${JO.imgTag(p.i[0], { widths: [112, 168], sizes: '56px', alt: '' })}</span><span><span class="sres__t">${esc(p.t)}</span><br><span class="sres__s">${p.a ? 'In stock' : 'Sold out'}</span></span><span class="sres__p">${money(p.p)}${JO.pct(p) ? `<s>${money(p.c)}</s>` : ''}</span></a>`;
+  const resRow = (p) => `<a href="${JO.url.product(p)}"><span class="sres__img">${JO.imgTag(p.i[0], { widths: [112, 168], sizes: '56px', alt: '' })}</span><span><span class="sres__t">${esc(p.t)}</span><br><span class="sres__s">${p.a ? 'In stock' : 'Sold out'}</span></span><span class="sres__p">${money(p.p)}${JO.pct(p) ? `<s><span class="sr-only">Original price </span>${money(p.c)}</s>` : ''}</span></a>`;
   function runSearch() {
     const q = sInput.value.trim();
     sActive = -1;
+    const status = $('[data-search-status]', sEl);
+    status.textContent = '';
     if (!q) return searchIdle();
     const res = JO.search(q);
+    status.textContent = res.length ? `${res.length} result${res.length > 1 ? 's' : ''}` : 'No results';
     if (!res.length) {
       sBody.innerHTML = `<div class="search-none"><b>No results for “${esc(q)}”.</b><br>Try a team, player or season — or <a href="${JO.wa('Hi! I am looking for: ' + q)}" target="_blank" rel="noopener" style="text-decoration:underline">ask us on WhatsApp</a>.</div>`;
       return;
     }
-    sBody.innerHTML = `<div class="search__label">${res.length} result${res.length > 1 ? 's' : ''}</div><div class="sres" role="listbox">${res.slice(0, 8).map(resRow).join('')}</div>
+    sBody.innerHTML = `<div class="search__label">${res.length} result${res.length > 1 ? 's' : ''}</div><div class="sres">${res.slice(0, 8).map(resRow).join('')}</div>
       <div class="search__all"><a class="btn btn--block" href="shop.html?q=${encodeURIComponent(q)}">View all ${res.length} results ${ic('arrow')}</a></div>`;
     JO.markLoaded(sBody);
   }

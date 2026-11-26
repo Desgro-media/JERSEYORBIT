@@ -62,9 +62,9 @@
   const badges = !p.a ? '<span class="pill pill--oos">Sold out</span>' : (off ? `<span class="pill pill--sale">-${off}%</span>` : '') + (JO.isNew(p) ? '<span class="pill pill--new">New</span>' : '');
   const gallery = `
     <div class="pdp__gallery">
-      <div class="pdp__thumbs" role="tablist" aria-label="Product images">${p.i.map((im, i) => `<button class="thumb${i ? '' : ' is-active'}" type="button" role="tab" aria-label="Show image ${i + 1}" data-thumb="${i}">${JO.imgTag(im, { widths: [120, 180], sizes: '84px', alt: '' })}</button>`).join('')}</div>
+      <div class="pdp__thumbs" role="group" aria-label="Product images">${p.i.map((im, i) => `<button class="thumb${i ? '' : ' is-active'}" type="button" aria-label="Show image ${i + 1}" aria-current="${i === 0}" data-thumb="${i}">${JO.imgTag(im, { widths: [120, 180], sizes: '84px', alt: '' })}</button>`).join('')}</div>
       <div class="pdp__stage">
-        <div class="pdp__track" data-track>${p.i.map((im, i) => `<figure class="pdp__slide" data-slide="${i}" style="margin:0">${JO.imgTag(im, { widths: [480, 720, 960, 1200], sizes: '(min-width:900px) 50vw, 100vw', alt: `${p.t} — image ${i + 1}`, eager: i === 0 })}</figure>`).join('')}</div>
+        <div class="pdp__track" data-track tabindex="0" role="group" aria-label="Product photos, scroll sideways">${p.i.map((im, i) => `<figure class="pdp__slide" data-slide="${i}" style="margin:0">${JO.imgTag(im, { widths: [480, 720, 960, 1200], sizes: '(min-width:900px) 50vw, 100vw', alt: `${p.t} — image ${i + 1}`, eager: i === 0 })}</figure>`).join('')}</div>
         <div class="card__badges">${badges}</div>
         <button class="pdp__expand" type="button" data-lb="0" aria-label="View full screen">${ic('expand')}</button>
         <div class="pdp__dots" data-dots>${p.i.map((_, i) => `<i class="${i ? '' : 'is-active'}"></i>`).join('')}</div>
@@ -85,8 +85,8 @@
   const info = `
     <div class="pdp__info">
       <h1 class="pdp__title">${esc(p.t)}</h1>
-      <div class="pdp__price"><span class="now">${money(p.p)}</span>${off ? `<s>${money(p.c)}</s><span class="pill pill--sale">Save ${off}%</span>` : ''}</div>
-      <p class="pdp__tax">Shipping calculated at checkout.</p>
+      <div class="pdp__price"><span class="now">${money(p.p)}</span>${off ? `<s><span class="sr-only">Original price </span>${money(p.c)}</s><span class="pill pill--sale">Save ${off}%</span>` : ''}</div>
+      <p class="pdp__tax">${money(CFG.shippingFee)} shipping all over India${CFG.freeShippingJerseys ? ` · Free on ${CFG.freeShippingJerseys} or more jerseys` : ''}</p>
       <div class="stock${p.a ? '' : ' is-out'}" data-stock>${p.a ? 'In stock — ready to ship' : 'Sold out'}</div>
 
       ${
@@ -94,7 +94,7 @@
           ? ''
           : `<div class="opt">
         <div class="opt__head"><span>Size <em data-size-label></em></span><button class="opt__guide" type="button" data-guide>${ic('ruler')}Find your size</button></div>
-        <div class="sizes" role="radiogroup" aria-label="Size" data-sizes>${p.v.map((v) => `<button class="size${v.a ? '' : ' is-oos'}" type="button" role="radio" aria-checked="false" data-size="${v.id}" ${v.a ? '' : 'title="Sold out"'}>${esc(v.s)}</button>`).join('')}</div>
+        <div class="sizes" role="group" aria-label="Size" data-sizes>${p.v.map((v) => `<button class="size${v.a ? '' : ' is-oos'}" type="button" aria-pressed="false" data-size="${v.id}" ${v.a ? '' : `title="Sold out" aria-label="${esc(v.s)}, sold out"`}>${esc(v.s)}</button>`).join('')}</div>
         <p class="size-msg" data-size-msg role="alert"></p>
       </div>`
       }
@@ -113,7 +113,7 @@
       </div>
 
       ${JO.acc('Product details', detailsBody, true)}
-      ${JO.acc('Shipping & delivery', `<ul><li>Kerala: <strong>2–3 business days</strong> · flat ${money(k.fee)}</li><li>Rest of India: <strong>5–10 business days</strong> · flat ${money(r.fee)}</li><li>Orders are processed and dispatched within 24 hours (excluding Sundays and public holidays).</li></ul><p style="margin-top:12px"><a href="policies.html?p=shipping" style="text-decoration:underline">Read the full shipping policy</a></p>`)}
+      ${JO.acc('Shipping & delivery', `<ul><li>Kerala: <strong>${k.minDays}–${k.maxDays} business days</strong></li><li>Rest of India: <strong>${r.minDays}–${r.maxDays} business days</strong></li><li>Flat <strong>${money(CFG.shippingFee)}</strong> shipping all over India${CFG.freeShippingJerseys ? `, <strong>free</strong> on ${CFG.freeShippingJerseys} or more jerseys (socks don’t count)` : ''}.</li><li>Orders are processed and dispatched within 24 hours (excluding Sundays and public holidays).</li></ul><p style="margin-top:12px"><a href="policies.html?p=shipping" style="text-decoration:underline">Read the full shipping policy</a></p>`)}
       ${JO.acc('Returns & exchange', `<p>We do not accept returns or exchanges for size issues, change of mind or dislike of the product — please check the size guide before ordering.</p><p>Returns or exchanges are only possible for <strong>damaged / defective</strong> or <strong>wrong</strong> items, reported within <strong>48 hours</strong> of delivery with a continuous, unedited <strong>unboxing video</strong>.</p><p style="margin:0"><a href="policies.html?p=refund" style="text-decoration:underline">Read the full return &amp; refund policy</a></p>`)}
     </div>`;
 
@@ -162,7 +162,7 @@
   const setActive = (i) => {
     if (i === active) return;
     active = i;
-    thumbs.forEach((t, k) => t.classList.toggle('is-active', k === i));
+    thumbs.forEach((t, k) => (t.classList.toggle('is-active', k === i), t.setAttribute('aria-current', String(k === i))));
     dots.forEach((d, k) => d.classList.toggle('is-active', k === i));
     const t = thumbs[i];
     t && t.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
@@ -261,7 +261,7 @@
       $$('.size', sizesEl).forEach((b) => {
         const on = selected && Number(b.dataset.size) === selected.id;
         b.classList.toggle('is-on', !!on);
-        b.setAttribute('aria-checked', String(!!on));
+        b.setAttribute('aria-pressed', String(!!on));
       });
       sizeLabel.textContent = selected ? '— ' + selected.s : '';
       sizeMsg.classList.remove('is-on');
@@ -344,7 +344,7 @@
     if (!items.length) return;
     const sec = $(secSel);
     sec.hidden = false;
-    $(railSel, sec).innerHTML = JO.rail(items.map((x) => JO.card(x, { reveal: false, sizes: '(min-width:1100px) 24vw, (min-width:700px) 32vw, 66vw' })).join(''));
+    $(railSel, sec).innerHTML = JO.rail(items.map((x) => JO.card(x, { reveal: false, sizes: JO.RAIL_SIZES })).join(''));
     JO.initRails(sec);
     JO.markLoaded(sec);
   };
