@@ -28,10 +28,12 @@
         JO.markLoaded(main);
         return;
       }
+      const refocus = JO.holdFocus(root);
       root.innerHTML = `<div class="cartp">
         <div>${JO.shipBarHtml()}<ul>${lines.map((l) => JO.lineHtml(l, true)).join('')}</ul><p style="margin-top:20px"><a class="link-arrow" href="shop.html">Continue shopping ${ic('arrow')}</a></p></div>
-        <aside class="summary"><h3>Order summary</h3>${JO.noteHtml()}${JO.cartTotalsHtml()}<a class="btn btn--block" href="${JO.cart.checkoutUrl()}" data-checkout>Checkout ${ic('arrow')}</a><p style="font-size:12.5px;color:var(--muted);margin:14px 0 0;text-align:center">No payment is taken on this website.</p></aside>
+        <aside class="summary" aria-label="Order summary"><h2>Order summary</h2>${JO.noteHtml()}${JO.cartTotalsHtml()}<a class="btn btn--block" href="${JO.cart.checkoutUrl()}" data-checkout>Checkout ${ic('arrow')}</a><p style="font-size:12.5px;color:var(--muted);margin:14px 0 0;text-align:center">No payment is taken on this website.</p></aside>
       </div>`;
+      refocus();
       $('[data-cart-rec]').innerHTML = recs();
       JO.initRails(main);
       JO.markLoaded(main);
@@ -40,7 +42,7 @@
       const have = new Set(JO.cart.lines().map((l) => l.p.id));
       const items = JO.catProducts('new-drops', 24).filter((p) => !have.has(p.id)).slice(0, 10);
       return items.length
-        ? `<section class="section section--tight"><div class="wrap"><div class="sec-head"><div><h2>You may also like</h2></div><div class="sec-head__r">${JO.railNav()}</div></div>${JO.rail(items.map((p) => JO.card(p, { reveal: false, sizes: '(min-width:1100px) 24vw, 66vw' })).join(''))}</div></section>`
+        ? `<section class="section section--tight"><div class="wrap"><div class="sec-head"><div><h2>You may also like</h2></div><div class="sec-head__r">${JO.railNav()}</div></div>${JO.rail(items.map((p) => JO.card(p, { reveal: false, sizes: JO.RAIL_SIZES })).join(''))}</div></section>`
         : '';
     };
     draw();
@@ -104,7 +106,7 @@
       const f = e.target,
         v = (n) => f[n].value.trim();
       const bad = { name: !v('name'), email: !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v('email')), msg: !v('msg') };
-      ['name', 'email', 'msg'].forEach((n) => f[n].closest('.field').classList.toggle('is-err', bad[n]));
+      ['name', 'email', 'msg'].forEach((n) => JO.markField(f[n], bad[n]));
       if (bad.name || bad.email || bad.msg) return f.querySelector('.is-err input, .is-err textarea').focus();
       const text = `Hi Jersey Orbit!\n\n${v('msg')}\n\n— ${v('name')}\nEmail: ${v('email')}${v('phone') ? '\nPhone: ' + v('phone') : ''}`;
       if (via === 'wa') window.open(JO.wa(text), '_blank', 'noopener');
@@ -129,15 +131,15 @@
         <div class="callout" style="margin:0;align-self:start"><b>No tracking ID yet?</b> Orders are packed and dispatched within 24 hours (excluding Sundays and public holidays).</div>
       </div>
       <div class="steps" style="padding-bottom:clamp(40px,6vw,90px)">
-        <div class="step"><b>01</b><h3 style="font-size:22px;text-transform:uppercase;margin-bottom:6px">Order placed</h3><p>Your order comes in and we start getting it ready.</p></div>
-        <div class="step"><b>02</b><h3 style="font-size:22px;text-transform:uppercase;margin-bottom:6px">Packed &amp; dispatched</h3><p>Within 24 hours. We confirm once it’s packed, then send your tracking ID on WhatsApp or email.</p></div>
-        <div class="step"><b>03</b><h3 style="font-size:22px;text-transform:uppercase;margin-bottom:6px">Delivered</h3><p>Kerala in 2–3 business days, rest of India in 5–10 business days.</p></div>
+        <div class="step"><b>01</b><h2 style="font-size:22px;text-transform:uppercase;margin-bottom:6px">Order placed</h2><p>Your order comes in and we start getting it ready.</p></div>
+        <div class="step"><b>02</b><h2 style="font-size:22px;text-transform:uppercase;margin-bottom:6px">Packed &amp; dispatched</h2><p>Within 24 hours. We confirm once it’s packed, then send your tracking ID on WhatsApp or email.</p></div>
+        <div class="step"><b>03</b><h2 style="font-size:22px;text-transform:uppercase;margin-bottom:6px">Delivered</h2><p>Kerala in 2–5 business days, rest of India in 5–9 business days.</p></div>
       </div></div>`;
     $('[data-track]').addEventListener('submit', (e) => {
       e.preventDefault();
       const f = e.target,
         id = f.id.value.trim();
-      f.id.closest('.field').classList.toggle('is-err', !id);
+      JO.markField(f.id, !id);
       if (!id) return f.id.focus();
       window.open(JO.wa(`Hi Jersey Orbit! Could you share the latest status of my order / tracking ID: ${id}`), '_blank', 'noopener');
     });
@@ -148,7 +150,7 @@
     main.innerHTML = `<div class="wrap">${phead('Customer reviews', 'Real messages from our WhatsApp and Instagram chats. Tap a review to see the chat.', 'Reviews')}
       <div class="chats">${CFG.chatReviews.map(JO.chatCard).join('')}</div>
       <h2 style="font-size:clamp(28px,3.4vw,44px);text-transform:uppercase;margin:clamp(34px,5vw,64px) 0 20px">More reviews</h2>
-      <div class="rev-grid">${CFG.reviews.map((r) => `<figure class="rev" style="margin:0">${JO.stars(5)}<q>${esc(r.text)}</q><footer><span class="rev__av">${esc(r.name[0])}</span><div><div class="rev__name">${esc(r.name)}</div><div class="rev__src">${JO.GOOGLE} From Google Reviews</div></div></footer></figure>`).join('')}</div></div>
+      <div class="rev-grid">${CFG.reviews.map(JO.revCard).join('')}</div></div>
       ${cta('Got your jersey?', 'We’d love to hear how it fits. Share a photo or a few words with us on WhatsApp or Instagram.')}`;
   };
 
@@ -176,7 +178,9 @@
       return;
     }
     const sub = lines.reduce((n, l) => n + l.price * l.qty, 0);
-    const AREAS = { kerala: ['Kerala', CFG.shipping.kerala.fee], india: ['Outside Kerala', CFG.shipping.india.fee] };
+    const fee = JO.shippingFee(lines);
+    const shipText = fee ? money(fee) : 'Free';
+    const AREAS = { kerala: 'Kerala', india: 'Outside Kerala' };
     const field = (id, label, attrs, error) => `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id.slice(3)}" ${attrs}><span class="err">${error}</span></div>`;
     main.innerHTML = `<div class="wrap">${phead('Checkout', 'Add your delivery details, then send the order to us on WhatsApp. No payment is taken on this website.')}
       <div class="cartp">
@@ -190,37 +194,32 @@
             ${field('co-city', 'Town / city', 'autocomplete="address-level2"', 'Please enter your town or city.')}
             ${field('co-pin', 'PIN code', 'inputmode="numeric" maxlength="6" autocomplete="postal-code"', 'Enter a 6-digit PIN code.')}
           </div>
-          <div class="field"><label for="co-area">Delivery area</label><select id="co-area" name="area"><option value="">Choose…</option>${Object.entries(AREAS).map(([k, a]) => `<option value="${k}">${a[0]} — ${money(a[1])} shipping</option>`).join('')}</select><span class="err">Please choose your delivery area.</span></div>
+          <div class="field"><label for="co-area">Delivery area</label><select id="co-area" name="area"><option value="">Choose…</option>${Object.entries(AREAS).map(([k, name]) => `<option value="${k}">${name} — ${CFG.shipping[k].minDays}–${CFG.shipping[k].maxDays} business days</option>`).join('')}</select><span class="err">Please choose your delivery area.</span></div>
           <div class="field"><label for="co-note">Order note (optional)</label><textarea id="co-note" name="note" style="min-height:70px" maxlength="500">${esc(JO.cart.note)}</textarea></div>
           <button class="btn btn--block" type="submit">${ic('whatsapp')} Send order on WhatsApp</button>
         </form>
-        <aside class="summary"><h3>Your order</h3>
+        <aside class="summary" aria-label="Your order"><h2>Your order</h2>
           <ul class="co-lines">${lines.map((l) => `<li><span class="co-lines__img">${JO.imgTag(l.img, { widths: [200], alt: '' })}</span><span><b>${esc(l.p.t)}</b><small>${l.size === 'One Size' ? 'One size' : 'Size ' + esc(l.size)} × ${l.qty}</small></span><em>${money(l.price * l.qty)}</em></li>`).join('')}</ul>
-          <div class="totals"><div><span>Subtotal</span><span>${money(sub)}</span></div><div><span>Shipping</span><span data-ship>Choose area</span></div><div class="grand"><span>Total</span><span data-total>${money(sub)}</span></div></div>
+          <div class="totals"><div><span>Subtotal</span><span>${money(sub)}</span></div><div><span>Shipping</span><span>${shipText}</span></div><div class="grand"><span>Total</span><span>${money(sub + fee)}</span></div></div>
         </aside>
       </div></div>`;
     const form = $('[data-checkout-form]');
-    form.area.addEventListener('change', () => {
-      const a = AREAS[form.area.value];
-      $('[data-ship]').textContent = a ? money(a[1]) : 'Choose area';
-      $('[data-total]').textContent = money(sub + (a ? a[1] : 0));
-    });
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const v = (n) => form.elements[n].value.trim();
       const phone = v('phone').replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '');
       const bad = { name: !v('name'), phone: !/^[6-9]\d{9}$/.test(phone), address: !v('address'), city: !v('city'), pin: !/^[1-9]\d{5}$/.test(v('pin')), area: !AREAS[v('area')] };
-      Object.entries(bad).forEach(([n, isBad]) => form.elements[n].closest('.field').classList.toggle('is-err', isBad));
+      Object.entries(bad).forEach(([n, isBad]) => JO.markField(form.elements[n], isBad));
       const first = Object.keys(bad).find((n) => bad[n]);
       if (first) return form.elements[first].focus();
-      const [areaName, fee] = AREAS[v('area')];
+      const areaName = AREAS[v('area')];
       const text = [
         'Hi Jersey Orbit! I would like to order:',
         '',
         ...lines.map((l, i) => `${i + 1}) ${l.p.t}\n    Size: ${l.size} x ${l.qty} = ${money(l.price * l.qty)}`),
         '',
         `Subtotal: ${money(sub)}`,
-        `Shipping (${areaName}): ${money(fee)}`,
+        `Shipping (${areaName}): ${shipText}`,
         `Total: ${money(sub + fee)}`,
         '',
         `Name: ${v('name')}`,

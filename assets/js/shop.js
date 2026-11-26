@@ -65,11 +65,11 @@
         <h1 data-title>Catalog</h1>
         <p data-sub></p>
       </div>
-      <div class="shop-cats" role="tablist" aria-label="Categories" data-cats></div>
+      <div class="shop-cats" role="group" aria-label="Categories" data-cats></div>
       <div class="toolbar">
         <div class="toolbar__l">
           <button class="fbtn" type="button" data-open="filters" aria-haspopup="dialog">${ic('filter')}Filter<span class="n" data-fn>0</span></button>
-          <span class="count" data-count></span>
+          <span class="count" data-count role="status"></span>
         </div>
         <div class="toolbar__r">
           <label class="sort"><span class="sr-only">Sort by</span><select data-sort>${SORTS.map((s) => `<option value="${s[0]}">${s[1]}</option>`).join('')}</select>${ic('chev')}</label>
@@ -82,24 +82,25 @@
         </div>
       </div>
       <div class="active-filters" data-active></div>
-      <div class="shop-grid"><div class="grid" data-grid aria-live="polite"></div></div>
+      <h2 class="sr-only">Products</h2>
+      <div class="shop-grid"><div class="grid" data-grid></div></div>
       <div class="more" data-more></div>
     </div>
     <div class="wrap"><div style="height:30px"></div></div>`;
   document.body.insertAdjacentHTML(
     'beforeend',
-    `<aside class="drawer drawer--right" id="filters" role="dialog" aria-modal="true" aria-label="Filter products" inert>
+    `<div class="drawer drawer--right" id="filters" role="dialog" aria-modal="true" aria-label="Filter products" inert>
       <div class="drawer__head"><h2 class="drawer__title">Filter <small data-fcount></small></h2><button class="icon-btn" type="button" data-close aria-label="Close filters">${ic('x')}</button></div>
       <div class="drawer__body">
-        <div class="fdrawer__sec"><h4>Availability</h4><label class="check"><input type="checkbox" data-f-avail> In stock only</label></div>
-        <div class="fdrawer__sec"><h4>Size</h4><div class="chips">${SIZES.map((s) => `<button class="chip" type="button" data-f-size="${s}" aria-pressed="false">${s}</button>`).join('')}</div></div>
-        <div class="fdrawer__sec"><h4>Price</h4>
+        <div class="fdrawer__sec"><h3>Availability</h3><label class="check"><input type="checkbox" data-f-avail> In stock only</label></div>
+        <div class="fdrawer__sec"><h3>Size</h3><div class="chips">${SIZES.map((s) => `<button class="chip" type="button" data-f-size="${s}" aria-pressed="false">${s}</button>`).join('')}</div></div>
+        <div class="fdrawer__sec"><h3>Price</h3>
           <div class="price-fields"><label><span class="sr-only">Minimum price</span><input type="number" inputmode="numeric" min="0" placeholder="${PMIN}" data-f-min></label><span>to</span><label><span class="sr-only">Maximum price</span><input type="number" inputmode="numeric" min="0" placeholder="${PMAX}" data-f-max></label></div>
           <div class="chips" style="margin-top:14px">${[[0, 349, 'Under ₹350'], [350, 399, '₹350 – ₹399'], [400, 0, '₹400 & above']].map((r) => `<button class="chip" type="button" data-f-range="${r[0]},${r[1]}">${r[2]}</button>`).join('')}</div>
         </div>
       </div>
       <div class="drawer__foot fdrawer__foot"><button class="btn btn--outline" type="button" data-f-clear>Clear all</button><button class="btn" type="button" data-close data-f-show>Show results</button></div>
-    </aside>`
+    </div>`
   );
 
   const grid = $('[data-grid]'),
@@ -127,9 +128,10 @@
   }
 
   /* ---------- render ---------- */
+  const cardSizes = () => (view.m === 1 ? '(max-width:699px) 100vw, ' : '') + JO.CARD_SIZES;
   function chunk() {
     const next = list.slice(shown, shown + PAGE);
-    grid.insertAdjacentHTML('beforeend', next.map((p, i) => JO.card(p, { index: i, eager: shown === 0 && i < 4 })).join(''));
+    grid.insertAdjacentHTML('beforeend', next.map((p, i) => JO.card(p, { index: i, eager: shown === 0 && i < 4, sizes: cardSizes() })).join(''));
     shown += next.length;
     JO.reveal(grid);
     JO.markLoaded(grid);
@@ -178,10 +180,12 @@
     $('[data-fn]').textContent = nFilters;
     $('[data-fcount]').textContent = list.length ? `${list.length} results` : '';
     $('[data-f-show]').textContent = list.length ? `Show ${list.length} result${list.length === 1 ? '' : 's'}` : 'No results';
-    // chips
+    // chips (redrawing them must not lose a keyboard user's place)
+    const held = document.activeElement.closest('[data-cats]') && document.activeElement.dataset.c;
     $('[data-cats]').innerHTML = [{ key: 'all', title: 'All' }, ...CFG.categories.filter((c) => c.key !== 'all')]
-      .map((c) => `<button class="chip${!isSearch && state.c === c.key ? ' is-on' : ''}" type="button" role="tab" aria-selected="${!isSearch && state.c === c.key}" data-c="${c.key}">${esc(c.title)}</button>`)
+      .map((c) => `<button class="chip${!isSearch && state.c === c.key ? ' is-on' : ''}" type="button" aria-pressed="${!isSearch && state.c === c.key}" data-c="${c.key}">${esc(c.title)}</button>`)
       .join('');
+    held && $(`[data-cats] [data-c="${held}"]`).focus({ preventScroll: true });
     // active filter pills
     const act = [];
     if (isSearch) act.push(['q', `Search: ${state.q}`]);
@@ -213,6 +217,7 @@
     const mobile = matchMedia('(max-width:699px)').matches;
     grid.dataset.d = view.d;
     grid.dataset.m = view.m;
+    $$('img[srcset]', grid).forEach((i) => i.sizes !== cardSizes() && (i.sizes = cardSizes()));
     $$('.views button').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.v) === (mobile ? view.m : view.d)));
   }
 

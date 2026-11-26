@@ -92,8 +92,8 @@ function bodyLines(html) {
   return t
     .split('\n')
     .map((l) => l.replace(/\s+/g, ' ').trim().replace(/^[•·.\-–*]+\s*/, '').replace(/^o\s+(?=[A-Za-z])/, '').trim())
-    // the per-product delivery line contradicts the shipping policy (2-5 / 5-14 days vs 2-3 / 5-10);
-    // the storefront shows the policy timings instead
+    // drop the per-product delivery line: its timings can contradict the shipping policy,
+    // so the storefront shows the policy timings instead
     .filter((l) => l && !/delivered within/i.test(l))
     .map(tidyLine)
     .filter((l, i, a) => a.indexOf(l) === i);
