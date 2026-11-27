@@ -1,0 +1,32 @@
+{
+  "name": "jerseyorbit-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Jersey Orbit backend: storefront server, order API and admin panel",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "dev": "node --env-file-if-exists=.env --watch src/server.js",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:migrate": "node --env-file-if-exists=.env src/migrate.js",
+    "db:seed": "node --env-file-if-exists=.env src/seed.js",
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "admin:create": "node --env-file-if-exists=.env src/create-admin.js",
+    "test": "node --env-file-if-exists=.env --test --test-concurrency=1 test/*.test.js"
+  },
+  "dependencies": {
+    "@fastify/compress": "^9.3.0",
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/multipart": "^10.1.9",
+    "@fastify/rate-limit": "^11.3.0",
+    "@fastify/static": "^11.0.0",
+    "fastify": "^5.12.8",
+    "pg": "^8.23.1",
+    "sharp": "^0.35.5"
+  }
+}

@@ -27,6 +27,7 @@ window.JO_CONFIG = {
 
   // One flat shipping fee for all of India. An order with at least `freeShippingJerseys` jerseys ships free
   // (socks don't count). Set it to 0 to switch the offer off.
+  // The order server reads these two numbers from this file too, so the fee on screen and on the order match.
   // If you change these or the delivery days, also update the text that spells them out: `announcements` and
   // `faq` below, home.js, pages.js (order tracking), index.html and the shipping policy.
   shippingFee: 49,
@@ -154,7 +155,7 @@ window.JO_CONFIG = {
     { q: 'How do I order and pay?', a: 'Add jerseys to your cart, enter your delivery details at checkout and send the order to us on <strong>WhatsApp</strong>. No payment is taken on this website.' },
     { q: 'How long does delivery take?', a: 'Kerala orders are typically delivered within <strong>2–5 business days</strong>. The rest of India takes <strong>5–9 business days</strong>. Orders are processed and dispatched within 24 hours (excluding Sundays and public holidays).' },
     { q: 'How much is shipping?', a: 'A flat rate of <strong>₹49 all over India</strong>, added at checkout. Shipping is <strong>free when you buy 3 or more jerseys</strong> (socks do not count towards the three).' },
-    { q: 'How do I track my order?', a: 'Once your jersey ships we send you a tracking ID on <strong>WhatsApp or email</strong>. Send it to us from the <a href="track.html">Order Tracking</a> page and we will get you the latest status.' },
+    { q: 'How do I track my order?', a: 'Check your status on the <a href="track.html">Order Tracking</a> page with your order number and phone number. Once your jersey ships we also send you a tracking ID on <strong>WhatsApp or email</strong>.' },
     { q: 'Can I return or exchange a jersey?', a: 'We do not accept returns or exchanges for size issues, change of mind, or dislike of the product. Returns or exchanges are only possible if the jersey arrives <strong>damaged / defective</strong> or if we sent the <strong>wrong product</strong>. See the full <a href="policies.html?p=refund">Return &amp; Refund Policy</a>.' },
     { q: 'What do I need to claim a damaged or wrong item?', a: 'A continuous, <strong>unedited unboxing video</strong> showing the package being opened for the first time, with the label and the defect or error clearly visible. Claims must be reported within <strong>48 hours of delivery</strong> on WhatsApp or email, with your order details and the video.' },
     { q: 'How do I pick the right size?', a: 'Open the <strong>Find your size</strong> guide on any product page. Because size-related returns are not accepted, message us on WhatsApp if you are unsure and we will help you choose.' },

@@ -8,3 +8,12 @@ tools/cache/logo.svg
 # OS / editor noise
 .DS_Store
 Thumbs.db
+
+# Backend: dependencies, secrets, uploaded photos and database backups. This repo is public.
+node_modules/
+.env
+.env.*
+!.env.example
+server/uploads/
+*.sql.gz
+*.dump

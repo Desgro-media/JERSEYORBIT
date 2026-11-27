@@ -36,6 +36,29 @@
   JO.on = (ev, fn) => ((bus[ev] = bus[ev] || []).push(fn), fn);
   JO.emit = (ev, d) => (bus[ev] || []).forEach((fn) => fn(d));
 
+  /* ---------- order server ----------
+     Resolves to { ok, status, data } when the order server answers. Resolves to null when there is no
+     server (plain static hosting) or it can't be reached, so the page can fall back to WhatsApp. */
+  JO.api = async (path, body, ms = 8000) => {
+    const stop = new AbortController();
+    const timer = setTimeout(() => stop.abort(), ms);
+    try {
+      const res = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: stop.signal });
+      const data = await res.json();
+      if (res.ok) return { ok: true, status: res.status, data };
+      return res.status < 500 && data && data.error && data.error !== 'NOT_FOUND' ? { ok: false, status: res.status, data } : null;
+    } catch (e) {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  /** a random id (crypto.randomUUID only exists on https and localhost) */
+  JO.uuid = () =>
+    '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) => (Number(c) ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(c) / 4)))).toString(16));
+  /** digits only, without a leading 91 or 0 */
+  JO.normPhone = (s) => String(s).replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '');
+
   /* ---------- urls ---------- */
   JO.url = {
     product: (p) => 'product.html?p=' + encodeURIComponent(p.h),
