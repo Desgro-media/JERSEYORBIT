@@ -121,12 +121,27 @@
   };
 
   /* ---------- track ---------- */
+  const STATUS_TEXT = { pending: 'Waiting for confirmation', confirmed: 'Confirmed', packed: 'Packed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled' };
+  const trackResult = (o) => {
+    const row = (label, value) => (value ? `<dt>${label}</dt><dd>${value}</dd>` : '');
+    return `<div class="callout" style="margin:0"><b>Order ${esc(o.orderNumber)}: ${esc(STATUS_TEXT[o.status] || o.status)}</b>
+      <dl class="kv" style="grid-template-columns:100px 1fr;margin-top:12px">
+        ${row('Placed', new Date(o.placedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }))}
+        ${row('Items', o.items.map((i) => `${esc(i.title)} (${i.size === 'One Size' ? 'one size' : 'size ' + esc(i.size)}) × ${esc(i.quantity)}`).join('<br>'))}
+        ${row('Total', money(o.total))}
+        ${row('Courier', esc(o.courier))}
+        ${row('Tracking ID', esc(o.trackingId))}
+      </dl></div>`;
+  };
+
   R.track = () => {
-    main.innerHTML = `<div class="wrap">${phead('Order tracking', 'Once your jersey ships we send you a tracking ID on WhatsApp or email. Enter your order number or tracking ID and we’ll get you the latest status.', 'Order tracking')}
+    main.innerHTML = `<div class="wrap">${phead('Order tracking', 'Enter your order number and the phone number used on the order to see its status. Only have a tracking ID? Send it to us on WhatsApp and we’ll get you the latest status.', 'Order tracking')}
       <div class="split" style="padding-bottom:20px">
         <form class="form" data-track novalidate>
-          <div class="field"><label for="t-id">Order number or tracking ID</label><input id="t-id" name="id" placeholder="e.g. #1042 or your tracking ID" autocomplete="off" required><span class="err">Please enter your order number or tracking ID.</span></div>
-          <div class="hero__cta"><button class="btn" type="submit">${ic('whatsapp')} Get status on WhatsApp</button></div>
+          <div class="field"><label for="t-id">Order number or tracking ID</label><input id="t-id" name="id" placeholder="e.g. JO-1042 or your tracking ID" autocomplete="off" required><span class="err">Please enter your order number or tracking ID.</span></div>
+          <div class="field"><label for="t-phone">Phone number on the order</label><input id="t-phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel"><span class="err">Enter the 10-digit mobile number used on the order.</span></div>
+          <div class="hero__cta"><button class="btn" type="submit">Check status</button><button class="btn btn--outline" type="button" data-track-wa>${ic('whatsapp')} Get status on WhatsApp</button></div>
+          <div data-track-result role="status"></div>
         </form>
         <div class="callout" style="margin:0;align-self:start"><b>No tracking ID yet?</b> Orders are packed and dispatched within 24 hours (excluding Sundays and public holidays).</div>
       </div>
@@ -135,13 +150,36 @@
         <div class="step"><b>02</b><h2 style="font-size:22px;text-transform:uppercase;margin-bottom:6px">Packed &amp; dispatched</h2><p>Within 24 hours. We confirm once it’s packed, then send your tracking ID on WhatsApp or email.</p></div>
         <div class="step"><b>03</b><h2 style="font-size:22px;text-transform:uppercase;margin-bottom:6px">Delivered</h2><p>Kerala in 2–5 business days, rest of India in 5–9 business days.</p></div>
       </div></div>`;
-    $('[data-track]').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const f = e.target,
-        id = f.id.value.trim();
-      JO.markField(f.id, !id);
-      if (!id) return f.id.focus();
+    const form = $('[data-track]');
+    const idInput = form.elements.id,
+      phoneInput = form.elements.phone,
+      button = $('button[type="submit"]', form),
+      result = $('[data-track-result]', form);
+    const note = (text) => (result.innerHTML = `<div class="callout" style="margin:0">${esc(text)}</div>`);
+    $('[data-track-wa]').addEventListener('click', () => {
+      const id = idInput.value.trim();
+      JO.markField(idInput, !id);
+      JO.markField(phoneInput, false);
+      if (!id) return idInput.focus();
       window.open(JO.wa(`Hi Jersey Orbit! Could you share the latest status of my order / tracking ID: ${id}`), '_blank', 'noopener');
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (button.disabled) return;
+      const id = idInput.value.trim(),
+        phone = JO.normPhone(phoneInput.value);
+      const bad = { id: !id, phone: !/^[6-9]\d{9}$/.test(phone) };
+      JO.markField(idInput, bad.id);
+      JO.markField(phoneInput, bad.phone);
+      if (bad.id) return idInput.focus();
+      if (bad.phone) return phoneInput.focus();
+      button.disabled = true;
+      note('Checking your order…');
+      const res = await JO.api('api/orders/track', { orderNumber: id.slice(0, 30), phone });
+      button.disabled = false;
+      if (!res) return note('We can’t check orders online right now. Please use “Get status on WhatsApp”.');
+      if (!res.ok) return note(`${res.data.message} Check both, or use “Get status on WhatsApp”.`);
+      result.innerHTML = trackResult(res.data);
     });
   };
 
@@ -170,7 +208,7 @@
     const getLines = () => {
       if (!buyId) return JO.cart.lines();
       const r = JO.byVid(buyId);
-      return r && r.v.a ? [{ p: r.p, size: r.v.s, price: r.v.p, img: r.p.i[0], qty: Math.min(JO.cart.MAX_QTY, Math.max(1, parseInt(buyQty, 10) || 1)) }] : [];
+      return r && r.v.a ? [{ vid: r.v.id, p: r.p, size: r.v.s, price: r.v.p, img: r.p.i[0], qty: Math.min(JO.cart.MAX_QTY, Math.max(1, parseInt(buyQty, 10) || 1)) }] : [];
     };
     const lines = getLines();
     if (!lines.length) {
@@ -196,7 +234,9 @@
           </div>
           <div class="field"><label for="co-area">Delivery area</label><select id="co-area" name="area"><option value="">Choose…</option>${Object.entries(AREAS).map(([k, name]) => `<option value="${k}">${name} — ${CFG.shipping[k].minDays}–${CFG.shipping[k].maxDays} business days</option>`).join('')}</select><span class="err">Please choose your delivery area.</span></div>
           <div class="field"><label for="co-note">Order note (optional)</label><textarea id="co-note" name="note" style="min-height:70px" maxlength="500">${esc(JO.cart.note)}</textarea></div>
+          <div class="callout" data-co-alert role="alert" tabindex="-1" style="margin:0;background:#ffe3ec;color:#8a0f38" hidden></div>
           <button class="btn btn--block" type="submit">${ic('whatsapp')} Send order on WhatsApp</button>
+          <p style="font-size:13px;color:var(--muted);margin:0;text-align:center">We use these details to process and deliver your order.</p>
         </form>
         <aside class="summary" aria-label="Your order"><h2>Your order</h2>
           <ul class="co-lines">${lines.map((l) => `<li><span class="co-lines__img">${JO.imgTag(l.img, { widths: [200], alt: '' })}</span><span><b>${esc(l.p.t)}</b><small>${l.size === 'One Size' ? 'One size' : 'Size ' + esc(l.size)} × ${l.qty}</small></span><em>${money(l.price * l.qty)}</em></li>`).join('')}</ul>
@@ -204,17 +244,76 @@
         </aside>
       </div></div>`;
     const form = $('[data-checkout-form]');
-    form.addEventListener('submit', (e) => {
+    const submit = $('button[type="submit"]', form),
+      submitHtml = submit.innerHTML,
+      alertBox = $('[data-co-alert]', form);
+    /* the same details sent twice keep one reference, so the server makes only one order */
+    let attempt = { body: '', ref: '' };
+
+    const showProblem = (problem) => {
+      const why = { sold_out: 'is sold out', gone: 'is no longer available' };
+      const items = problem.error === 'ITEMS_UNAVAILABLE' ? problem.details || [] : [];
+      alertBox.innerHTML = `<b>${esc(problem.message)}</b>${
+        items.length
+          ? `<ul style="margin:8px 0">${items.map((d) => `<li>${esc(d.title || 'An item')}${d.size ? ` (${esc(d.size)})` : ''} ${d.reason === 'not_enough' ? `has only ${esc(d.left)} left` : why[d.reason] || 'is unavailable'}.</li>`).join('')}</ul><a href="${buyId ? 'shop.html' : 'cart.html'}" style="text-decoration:underline">${buyId ? 'Back to the catalog' : 'Change your cart'}</a>`
+          : problem.error === 'TOTAL_CHANGED'
+          ? ' <a href="" style="text-decoration:underline">Reload now</a>'
+          : ''
+      }`;
+      alertBox.hidden = false;
+      alertBox.focus();
+    };
+
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (submit.disabled) return;
       const v = (n) => form.elements[n].value.trim();
-      const phone = v('phone').replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '');
+      const phone = JO.normPhone(v('phone'));
       const bad = { name: !v('name'), phone: !/^[6-9]\d{9}$/.test(phone), address: !v('address'), city: !v('city'), pin: !/^[1-9]\d{5}$/.test(v('pin')), area: !AREAS[v('area')] };
       Object.entries(bad).forEach(([n, isBad]) => JO.markField(form.elements[n], isBad));
       const first = Object.keys(bad).find((n) => bad[n]);
       if (first) return form.elements[first].focus();
       const areaName = AREAS[v('area')];
+
+      // open the tab now, while this still counts as the customer's click, or the browser blocks it
+      const tab = window.open('', '_blank');
+      if (tab) {
+        tab.opener = null;
+        tab.document.title = 'Opening WhatsApp…';
+        tab.document.body.textContent = 'Saving your order…';
+      }
+      submit.disabled = true;
+      submit.textContent = 'Saving your order…';
+      alertBox.hidden = true;
+
+      const order = {
+        items: lines.map((l) => ({ variantId: l.vid, quantity: l.qty })),
+        name: v('name').slice(0, 100),
+        phone,
+        address: v('address').slice(0, 500),
+        city: v('city').slice(0, 100),
+        pincode: v('pin'),
+        area: v('area'),
+        note: v('note').slice(0, 500),
+        expectedTotal: sub + fee,
+      };
+      const body = JSON.stringify(order);
+      if (body !== attempt.body) attempt = { body, ref: JO.uuid() };
+      const res = await JO.api('api/orders', { clientRef: attempt.ref, ...order });
+      submit.disabled = false;
+      submit.innerHTML = submitHtml;
+
+      // the server looked at the order and said no (sold out, price changed…): don't send it
+      if (res && !res.ok && (res.status === 400 || res.status === 409)) {
+        if (tab) tab.close();
+        return showProblem(res.data);
+      }
+      // no server, or it couldn't answer: send the order on WhatsApp without an order number
+      const saved = res && res.ok && res.data.orderNumber ? res.data : null;
+
       const text = [
         'Hi Jersey Orbit! I would like to order:',
+        saved ? `Order no: ${saved.orderNumber}` : '',
         '',
         ...lines.map((l, i) => `${i + 1}) ${l.p.t}\n    Size: ${l.size} x ${l.qty} = ${money(l.price * l.qty)}`),
         '',
@@ -229,8 +328,12 @@
         v('note') ? `Note: ${v('note')}` : '',
       ].join('\n').trim();
       const link = JO.wa(text);
-      window.open(link, '_blank', 'noopener');
-      main.innerHTML = `<div class="wrap"><div class="empty" style="padding-block:clamp(60px,10vw,120px)"><div class="empty__art">${ic('whatsapp')}</div><h3>One last step</h3><p>Press <b>Send</b> in WhatsApp. Your order isn’t placed until you send that message.</p><div class="hero__cta" style="justify-content:center"><a class="btn" href="${esc(link)}" target="_blank" rel="noopener">Open WhatsApp again</a>${buyId ? '' : '<button class="btn btn--outline" type="button" data-sent>I’ve sent it — clear my cart</button>'}<a class="btn btn--outline" href="shop.html">Keep shopping</a></div></div></div>`;
+      const opened = !!(tab && !tab.closed);
+      if (opened) tab.location.replace(link);
+      const message = saved
+        ? `Your order number is <b>${esc(saved.orderNumber)}</b>. Press <b>Send</b> in WhatsApp. We confirm your order after we get that message. Keep the number to check your order on the <a href="track.html" style="text-decoration:underline">Order Tracking</a> page.`
+        : 'Press <b>Send</b> in WhatsApp. Your order isn’t placed until you send that message.';
+      main.innerHTML = `<div class="wrap"><div class="empty" style="padding-block:clamp(60px,10vw,120px)"><div class="empty__art">${ic('whatsapp')}</div><h3>One last step</h3><p>${message}</p><div class="hero__cta" style="justify-content:center"><a class="btn" href="${esc(link)}" target="_blank" rel="noopener">${opened ? 'Open WhatsApp again' : 'Open WhatsApp'}</a>${buyId ? '' : '<button class="btn btn--outline" type="button" data-sent>I’ve sent it — clear my cart</button>'}<a class="btn btn--outline" href="shop.html">Keep shopping</a></div></div></div>`;
       scrollTo({ top: 0, behavior: 'instant' });
       const sent = $('[data-sent]');
       sent && sent.addEventListener('click', () => {
