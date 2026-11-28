@@ -1,5 +1,6 @@
 /* Copies the website's catalog (assets/js/data.js) into the database.
-   Safe to run again: it only adds products that are missing and never overwrites an admin's edits. */
+   Safe to run again: it only adds products that are missing, never overwrites an admin's edits,
+   and never brings back a product that was deleted in the admin panel. */
 import { pathToFileURL } from 'node:url';
 import { createDb } from './db.js';
 import { loadEnv } from './env.js';
@@ -18,8 +19,10 @@ export async function seed(db, data = staticCatalog()) {
     for (const key of new Set([...alwaysOffered, ...keys])) {
       await c.query('INSERT INTO collections (key, title) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING', [key, titles[key] || EXTRA_TITLES[key] || key]);
     }
+    const retired = new Set((await c.query('SELECT id FROM retired_products')).rows.map((r) => r.id));
     let added = 0;
     for (const p of data.products) {
+      if (retired.has(p.id)) continue;
       const res = await c.query(
         `INSERT INTO products (id, handle, title, details, is_published, sort_order, created_at)
          VALUES ($1, $2, $3, $4, true, $5, to_timestamp($6))
@@ -47,10 +50,10 @@ export async function seed(db, data = staticCatalog()) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const db = createDb(loadEnv().databaseUrl);
+  const db = createDb(loadEnv().ownerUrl);
   try {
     const { added, total } = await seed(db);
-    console.log(`Catalog: added ${added} of ${total} products (${total - added} were already there).`);
+    console.log(`Catalog: added ${added} of ${total} products (the others are already there or were deleted).`);
   } finally {
     await db.close();
   }

@@ -65,10 +65,12 @@ Payment status (`unpaid`, `paid`, `refunded`) is set by the admin and is separat
 
 ## Security checklist
 
+The wider 20-point checklist, the roles, the activity log and the product-management API are in [`security_and_admin_design.md`](security_and_admin_design.md).
+
 | Area | Measure |
 | --- | --- |
-| Authentication | scrypt password hashes. Random session token; only its hash is stored. `HttpOnly`, `SameSite=Strict` cookie, `Secure` in production, 12-hour life. No default account. |
-| Authorization | One admin role. A single hook protects every `/api/admin` route except login. |
+| Authentication | scrypt password hashes. Random session token; only its hash is stored. `HttpOnly`, `SameSite=Strict` cookie, `Secure` in production, 12-hour life and 60-minute idle limit. No default account. |
+| Authorization | `owner` and `staff` roles. A single hook protects every `/api/admin` route except login, and checks the owner role where a route requires it. |
 | CSRF | Strict cookie, plus a custom request header and an `Origin` check on every admin write. No CORS. |
 | Input | JSON schema on every body and query. Database constraints as a second line. |
 | SQL injection | Parameterized queries only. |
@@ -77,5 +79,5 @@ Payment status (`unpaid`, `paid`, `refunded`) is set by the admin and is separat
 | Files | Only listed pages and `assets/` are served, never the repository folder. |
 | Uploads | Real image decode, size and pixel limits, re-encoded to WebP (drops location data), random file names. |
 | Abuse | Rate limits on login, ordering and tracking. A repeated submit returns the same order. Behind a proxy, `TRUST_PROXY` must list its addresses (Fastify ignores hop counts). |
-| Logging | Failed sign-ins and admin changes are logged. Request bodies and query strings are not. |
+| Logging | Sign-ins and every admin change go to an append-only activity log in the database. Request bodies and query strings are not logged. |
 | Secrets | Only in `.env`, which Git ignores. This repository is public. |

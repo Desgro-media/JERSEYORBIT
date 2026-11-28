@@ -8,7 +8,7 @@
 <link rel="icon" href="/assets/img/favicon.png" type="image/png">
 <link rel="stylesheet" href="/assets/css/fonts.css">
 <link rel="stylesheet" href="/admin/admin.css">
-<script defer src="/admin/admin.js"></script>
+<script type="module" src="/admin/admin.js"></script>
 </head>
 <body>
 <header class="bar" data-bar hidden>
@@ -17,11 +17,16 @@
     <a href="#/" data-nav="home">Dashboard</a>
     <a href="#/orders" data-nav="orders">Orders</a>
     <a href="#/products" data-nav="products">Products</a>
+    <a href="#/collections" data-nav="collections">Collections</a>
+    <a href="#/storefront" data-nav="storefront">Storefront</a>
+    <a href="#/wildcard" data-nav="wildcard">Wildcard</a>
+    <a href="#/activity" data-nav="activity" data-owner-only hidden>Activity</a>
   </nav>
-  <div class="who"><span data-user></span><button type="button" class="btn btn--ghost" data-logout>Sign out</button></div>
+  <div class="who"><a href="#/account" data-nav="account" title="Your account"><span data-user></span></a><button type="button" class="btn btn--ghost" data-logout>Sign out</button></div>
 </header>
 <main data-view tabindex="-1"><p class="muted">Loading…</p></main>
+<div class="gate" data-gate hidden></div>
 <div class="toasts" data-toasts aria-live="polite"></div>
-<noscript><p style="padding:24px">The admin panel needs JavaScript.</p></noscript>
+<noscript><p class="no-js">The admin panel needs JavaScript.</p></noscript>
 </body>
 </html>

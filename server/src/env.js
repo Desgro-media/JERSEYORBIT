@@ -18,15 +18,32 @@ function readTrustProxy(raw = '') {
   return value;
 }
 
+/* The upload folder is served to everyone, so it must not be (or contain) the app's own folders. */
+function readUploadDir(raw) {
+  const dir = path.resolve(SERVER_DIR, raw || 'uploads');
+  const fromUploads = path.relative(dir, SERVER_DIR);
+  const holdsTheApp = !fromUploads.startsWith('..') && !path.isAbsolute(fromUploads);
+  if (holdsTheApp) throw new Error('UPLOAD_DIR must be a folder of its own for photos, not one that contains the app.');
+  return dir;
+}
+
 export function loadEnv(env = process.env) {
   if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not set. Copy server/.env.example to server/.env.');
-  const production = env.NODE_ENV === 'production';
+  // Live mode unless clearly told otherwise: a live server that forgets NODE_ENV must still be safe.
+  const production = !['development', 'test'].includes(env.NODE_ENV);
+  const ownerUrl = env.DATABASE_OWNER_URL || env.DATABASE_URL;
+  if (production && [env.DATABASE_URL, ownerUrl].some((url) => url.includes(':jerseyorbit_local@'))) {
+    throw new Error(
+      'DATABASE_URL uses the local development password. On your own computer, set NODE_ENV=development in server/.env. On a live server, use your own database.'
+    );
+  }
   return {
     production,
     databaseUrl: env.DATABASE_URL,
+    ownerUrl, // for migrations and the command-line tools
     port: Number(env.PORT) || 4000,
     host: env.HOST || '127.0.0.1',
     trustProxy: readTrustProxy(env.TRUST_PROXY),
-    uploadDir: path.resolve(SERVER_DIR, env.UPLOAD_DIR || 'uploads'),
+    uploadDir: readUploadDir(env.UPLOAD_DIR),
   };
 }

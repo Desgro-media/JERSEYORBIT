@@ -4,55 +4,16 @@ import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
-import pg from 'pg';
 import sharp from 'sharp';
 import { buildApp } from '../src/app.js';
 import { loadEnv } from '../src/env.js';
-import { upsertAdmin } from '../src/auth.js';
-import { createDb } from '../src/db.js';
-import { migrate } from '../src/migrate.js';
 import { seed } from '../src/seed.js';
-import { shopConfig, staticCatalog } from '../src/storefront-data.js';
+import {
+  PASSWORD, catalog as readCatalog, customer, data, editBody, jerseys, line, multipart, onSale, setUp, shop, socks,
+} from './helpers.js';
 
-const base = new URL(process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || 'postgres://jerseyorbit:jerseyorbit_local@127.0.0.1:5438/jerseyorbit');
-if (!process.env.TEST_DATABASE_URL) base.pathname = `${base.pathname}_test`;
-const TEST_URL = base.toString();
-const TEST_NAME = base.pathname.slice(1);
-
-const PASSWORD = 'correct-horse-battery';
-const data = staticCatalog();
-const shop = shopConfig();
-
-let db, app, uploadDir, cookie;
-let ipCounter = 0;
-
-/** each call comes from a new address unless one is given, so rate limits don't interfere between tests */
-const call = (method, url, { body, headers = {}, ip, payload } = {}) =>
-  app.inject({ method, url, headers, payload: payload ?? body, remoteAddress: ip || `10.${(ipCounter >> 16) & 255}.${(ipCounter >> 8) & 255}.${++ipCounter & 255}` });
-
-const admin = (method, url, body, extra = {}) =>
-  call(method, '/api/admin' + url, { body, ...extra, headers: { cookie, 'x-jo-admin': '1', ...extra.headers } });
-
-const customer = (over = {}) => ({
-  clientRef: crypto.randomUUID(),
-  name: 'Test Customer',
-  phone: '9876543210',
-  address: '12 Test Road',
-  city: 'Kochi',
-  pincode: '682001',
-  area: 'kerala',
-  note: '',
-  ...over,
-});
-
-const isSock = (p) => p.k.includes('socks');
-/** products with at least one size on sale, so tests don't depend on particular ids */
-const jerseys = data.products.filter((p) => !isSock(p) && p.v.some((v) => v.a));
-const socks = data.products.find((p) => isSock(p) && p.v.some((v) => v.a));
-const onSale = (p) => p.v.find((v) => v.a);
-const line = (v, quantity = 1) => ({ variantId: v.id, quantity });
+let shopUnderTest, db, uploadDir, cookie, call, admin;
 
 const order = async (over) => {
   const res = await call('POST', '/api/orders', { body: customer(over) });
@@ -62,23 +23,7 @@ const order = async (over) => {
 const orderId = async (number) => (await db.query('SELECT id FROM orders WHERE order_number = $1', [number])).rows[0].id;
 const stockOf = async (variantId) => (await db.query('SELECT stock_qty FROM product_variants WHERE id = $1', [variantId])).rows[0].stock_qty;
 
-async function catalog() {
-  const res = await call('GET', '/assets/js/data.js');
-  assert.equal(res.statusCode, 200);
-  const window = {};
-  new Function('window', res.body)(window);
-  return window.JO_DATA;
-}
-
-/** the editor's request body for a product, as the admin screen would send it */
-const editBody = (p) => ({
-  title: p.title,
-  details: p.details,
-  collections: p.collections,
-  published: p.published,
-  version: p.version,
-  variants: p.variants.map(({ id, size, price, compareAt, available, stock }) => ({ id, size, price, compareAt, available, stock })),
-});
+const catalog = () => readCatalog(call);
 
 async function setStock(productId, variantId, stock) {
   const p = (await admin('GET', `/products/${productId}`)).json();
@@ -88,46 +33,12 @@ async function setStock(productId, variantId, stock) {
   assert.equal(res.statusCode, 200, res.body);
 }
 
-const multipart = (buffer, filename = 'photo.jpg', type = 'image/jpeg') => {
-  const boundary = 'test-boundary-123';
-  return {
-    headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
-    payload: Buffer.concat([
-      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="${filename}"\r\nContent-Type: ${type}\r\n\r\n`),
-      buffer,
-      Buffer.from(`\r\n--${boundary}--\r\n`),
-    ]),
-  };
-};
-
 before(async () => {
-  assert.match(TEST_NAME, /^[a-z0-9_]+_test$/, 'refusing to wipe a database whose name does not end in _test');
-  const server = new URL(TEST_URL);
-  server.pathname = '/postgres';
-  const client = new pg.Client({ connectionString: server.toString() });
-  await client.connect();
-  const exists = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [TEST_NAME]);
-  if (!exists.rowCount) await client.query(`CREATE DATABASE ${TEST_NAME}`);
-  await client.end();
-
-  db = createDb(TEST_URL);
-  await db.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public');
-  await migrate(db);
-  await seed(db);
-  await upsertAdmin(db, 'owner', PASSWORD);
-  uploadDir = await fs.mkdtemp(path.join(os.tmpdir(), 'jo-uploads-'));
-  app = await buildApp({ db, env: { production: false, trustProxy: false, uploadDir }, logger: false });
-
-  const res = await call('POST', '/api/admin/login', { body: { username: 'owner', password: PASSWORD }, headers: { 'x-jo-admin': '1' } });
-  assert.equal(res.statusCode, 200, res.body);
-  cookie = res.headers['set-cookie'].split(';')[0];
+  shopUnderTest = await setUp();
+  ({ db, uploadDir, cookie, call, admin } = shopUnderTest);
 });
 
-after(async () => {
-  await app?.close();
-  await db?.close();
-  if (uploadDir) await fs.rm(uploadDir, { recursive: true, force: true });
-});
+after(() => shopUnderTest?.stop());
 
 describe('storefront', () => {
   test('the catalog from the database matches the website’s catalog file', async () => {

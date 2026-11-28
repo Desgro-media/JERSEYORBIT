@@ -4,11 +4,19 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import fastifyStatic from '@fastify/static';
 import { ADMIN_DIR, ROOT } from '../env.js';
+import { adminPolicy } from '../headers.js';
 
 const PAGES = ['index', 'shop', 'product', 'cart', 'checkout', 'about', 'contact', 'faq', 'track', 'reviews', 'policies', '404'];
+// the only files the upload folder gives out: the names images.js creates
+const PHOTO_NAME = /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(480|1200)\.webp$/;
 
 export default async function siteRoutes(app, { env, catalog }) {
   await fs.mkdir(env.uploadDir, { recursive: true });
+
+  const adminCsp = adminPolicy(env.production);
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.routeOptions.url?.startsWith('/admin')) reply.header('content-security-policy', adminCsp);
+  });
 
   const ASSETS = path.join(ROOT, 'assets');
   await app.register(fastifyStatic, {
@@ -22,8 +30,23 @@ export default async function siteRoutes(app, { env, catalog }) {
     },
   });
   // uploaded photos get a new random name each time, so a browser may keep them for good
-  await app.register(fastifyStatic, { root: env.uploadDir, prefix: '/uploads/', index: false, decorateReply: false, maxAge: '365d', immutable: true });
-  await app.register(fastifyStatic, { root: ADMIN_DIR, prefix: '/admin/', decorateReply: false, cacheControl: false });
+  await app.register(fastifyStatic, {
+    root: env.uploadDir,
+    prefix: '/uploads/',
+    index: false,
+    decorateReply: false,
+    maxAge: '365d',
+    immutable: true,
+    allowedPath: (pathname) => PHOTO_NAME.test(pathname),
+  });
+  // checked on every load, so an updated admin panel is never mixed with old cached files
+  await app.register(fastifyStatic, {
+    root: ADMIN_DIR,
+    prefix: '/admin/',
+    decorateReply: false,
+    cacheControl: false,
+    setHeaders: (reply) => reply.header('cache-control', 'no-cache'),
+  });
   app.get('/admin', (request, reply) => reply.redirect('/admin/'));
 
   // the catalog comes from the database; this route wins over the static file of the same name

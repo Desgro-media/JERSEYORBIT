@@ -1,0 +1,42 @@
+# Runs the tests and checks the server's packages for known security problems.
+# It also runs every Monday, because a package can be found unsafe long after it was added.
+name: checks
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '30 3 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: jerseyorbit
+          POSTGRES_PASSWORD: jerseyorbit_local
+          POSTGRES_DB: jerseyorbit
+        ports:
+          - 5438:5432
+        options: --health-cmd "pg_isready -U jerseyorbit" --health-interval 3s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run security:audit
+      - run: npm test
+        env:
+          DATABASE_URL: postgres://jerseyorbit:jerseyorbit_local@127.0.0.1:5438/jerseyorbit
+          NODE_ENV: test

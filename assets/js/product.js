@@ -269,7 +269,7 @@
         sizeMsg.innerHTML = `Size ${esc(selected.s)} is sold out. <a href="${waAsk(`Is size ${selected.s} coming back in stock for`)}" target="_blank" rel="noopener">Ask about restock on WhatsApp</a>`;
         sizeMsg.classList.add('is-on');
       }
-      $$('[data-size-row]').forEach((tr) => tr.classList.toggle('is-hl', !!selected && tr.dataset.sizeRow === selected.s));
+      $$('[data-size-row]').forEach((tr) => tr.classList.toggle('is-hl', !!selected && tr.dataset.sizeRow === JO.sizeKey(selected.s)));
     }
     const ok = p.a && (!selected || selected.a);
     [atc, atc2, buy].forEach((b) => b && (b.disabled = !ok));
