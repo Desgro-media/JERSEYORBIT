@@ -51,7 +51,7 @@ window.JO_CONFIG = {
 
   nav: [
     { label: 'Home', href: 'index.html', page: 'home' },
-    { label: 'Catalog', href: 'shop.html', page: 'shop', mega: true },
+    { label: 'Category', href: 'shop.html', page: 'shop', mega: true },
     { label: 'Order Tracking', href: 'track.html', page: 'track' },
     { label: 'Reviews', href: 'reviews.html', page: 'reviews' },
     { label: 'About', href: 'about.html', page: 'about' },

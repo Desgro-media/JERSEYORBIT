@@ -135,7 +135,7 @@
   JO.byVid = (id) => byVid.get(Number(id));
   JO.col = (key) => (!key || key === 'all' ? products : products.filter((p) => p.k.includes(key)));
   JO.cat = (key) => CFG.categories.find((c) => c.key === key);
-  JO.catTitle = (key) => (JO.cat(key) || {}).title || 'Catalog';
+  JO.catTitle = (key) => (JO.cat(key) || {}).title || 'Category';
   JO.catCount = (key) => (key === 'all' ? products.length : DATA.collections[key] || 0);
   JO.pct = (p) => (p.c && p.c > p.p ? Math.round((1 - p.p / p.c) * 100) : 0);
   JO.dataAge = () => new Date(DATA.generated || Date.now()).getTime();

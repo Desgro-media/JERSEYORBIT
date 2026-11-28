@@ -14,7 +14,7 @@
 
   if (!p) {
     document.title = 'Jersey not found — Jersey Orbit';
-    main.innerHTML = `<div class="wrap"><div class="nf"><h1>4<span>0</span>4</h1><h2 style="font-size:32px;text-transform:uppercase;margin-bottom:12px">We couldn’t find that jersey</h2><p style="color:var(--muted);margin-bottom:24px">It may have sold out and been removed, or the link is old.</p><a class="btn" href="shop.html">Browse the catalog ${ic('arrow')}</a></div></div>`;
+    main.innerHTML = `<div class="wrap"><div class="nf"><h1>4<span>0</span>4</h1><h2 style="font-size:32px;text-transform:uppercase;margin-bottom:12px">We couldn’t find that jersey</h2><p style="color:var(--muted);margin-bottom:24px">It may have sold out and been removed, or the link is old.</p><a class="btn" href="shop.html">Browse categories ${ic('arrow')}</a></div></div>`;
     return;
   }
 
@@ -119,7 +119,7 @@
 
   main.innerHTML = `
     <div class="wrap" style="padding-top:clamp(14px,2vw,22px)">
-      <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><a href="${JO.url.shop(mainCat)}">${esc(mainCat === 'all' ? 'Catalog' : JO.catTitle(mainCat))}</a><span aria-hidden="true">/</span><span>${esc(p.t.length > 38 ? p.t.slice(0, 36) + '…' : p.t)}</span></nav>
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><a href="${JO.url.shop(mainCat)}">${esc(mainCat === 'all' ? 'Category' : JO.catTitle(mainCat))}</a><span aria-hidden="true">/</span><span>${esc(p.t.length > 38 ? p.t.slice(0, 36) + '…' : p.t)}</span></nav>
       <div class="pdp">${gallery}${info}</div>
     </div>
     <section class="section section--tight" data-similar hidden>

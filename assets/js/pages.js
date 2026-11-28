@@ -311,7 +311,7 @@
       const items = problem.error === 'ITEMS_UNAVAILABLE' ? problem.details || [] : [];
       alertBox.innerHTML = `<b>${esc(problem.message)}</b>${
         items.length
-          ? `<ul style="margin:8px 0">${items.map((d) => `<li>${esc(d.title || 'An item')}${d.size ? ` (${esc(d.size)})` : ''} ${d.reason === 'not_enough' ? `has only ${esc(d.left)} left` : why[d.reason] || 'is unavailable'}.</li>`).join('')}</ul><a href="${mode.buyNow ? 'shop.html' : 'cart.html'}" style="text-decoration:underline">${mode.buyNow ? 'Back to the catalog' : 'Change your cart'}</a>`
+          ? `<ul style="margin:8px 0">${items.map((d) => `<li>${esc(d.title || 'An item')}${d.size ? ` (${esc(d.size)})` : ''} ${d.reason === 'not_enough' ? `has only ${esc(d.left)} left` : why[d.reason] || 'is unavailable'}.</li>`).join('')}</ul><a href="${mode.buyNow ? 'shop.html' : 'cart.html'}" style="text-decoration:underline">${mode.buyNow ? 'Back to categories' : 'Change your cart'}</a>`
           : problem.error === 'TOTAL_CHANGED'
           ? ' <a href="" style="text-decoration:underline">Reload now</a>'
           : ''
@@ -405,7 +405,7 @@
 
   /* ---------- 404 ---------- */
   R['404'] = () => {
-    main.innerHTML = `<div class="wrap"><div class="nf"><h1>4<span>0</span>4</h1><h2 style="font-size:clamp(26px,3vw,38px);text-transform:uppercase;margin-bottom:12px">Offside! This page doesn’t exist.</h2><p style="color:var(--muted);margin-bottom:24px">The link may be old or the page was moved.</p><div class="hero__cta" style="justify-content:center"><a class="btn" href="index.html">Back to home ${ic('arrow')}</a><a class="btn btn--outline" href="shop.html">Browse the catalog</a></div></div></div>`;
+    main.innerHTML = `<div class="wrap"><div class="nf"><h1>4<span>0</span>4</h1><h2 style="font-size:clamp(26px,3vw,38px);text-transform:uppercase;margin-bottom:12px">Offside! This page doesn’t exist.</h2><p style="color:var(--muted);margin-bottom:24px">The link may be old or the page was moved.</p><div class="hero__cta" style="justify-content:center"><a class="btn" href="index.html">Back to home ${ic('arrow')}</a><a class="btn btn--outline" href="shop.html">Browse categories</a></div></div></div>`;
   };
 
   (R[page] || (() => {}))();
