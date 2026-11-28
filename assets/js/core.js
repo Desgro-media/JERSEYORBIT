@@ -5,6 +5,13 @@
   const DATA = window.JO_DATA || { products: [], collections: {} };
   const JO = (window.JO = { cfg: CFG, data: DATA });
 
+  /* Collections made in the admin panel arrive with the catalog (the built-in ones are in config.js).
+     They are listed just before "All Collection". */
+  (DATA.categories || []).forEach((c) => {
+    if (CFG.categories.some((x) => x.key === c.key)) return;
+    CFG.categories.splice(Math.max(0, CFG.categories.findIndex((x) => x.key === 'all')), 0, c);
+  });
+
   /* ---------- tiny helpers ---------- */
   JO.$ = (s, r = document) => r.querySelector(s);
   JO.$$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -53,6 +60,19 @@
       clearTimeout(timer);
     }
   };
+  /** reads from the order server. Resolves to null when there is none, or it can't answer. */
+  JO.getJson = async (path, ms = 8000) => {
+    const stop = new AbortController();
+    const timer = setTimeout(() => stop.abort(), ms);
+    try {
+      const res = await fetch(path, { signal: stop.signal, cache: 'no-store' });
+      return res.ok ? await res.json() : null;
+    } catch (e) {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
   /** a random id (crypto.randomUUID only exists on https and localhost) */
   JO.uuid = () =>
     '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) => (Number(c) ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(c) / 4)))).toString(16));
@@ -66,6 +86,13 @@
   };
   JO.wa = (text) => `https://wa.me/${CFG.contact.whatsapp}${text ? '?text=' + encodeURIComponent(text) : ''}`;
   JO.absUrl = (rel) => new URL(rel, location.href).href;
+
+  /* sizes as shoppers think of them: some jerseys are labelled XXL, others 2XL (same as server/src/sizes.js) */
+  const SAME_SIZE = { XXL: '2XL', XXXL: '3XL' };
+  JO.sizeKey = (s) => {
+    const k = String(s).trim().toUpperCase();
+    return SAME_SIZE[k] || k;
+  };
 
   /* ---------- images (local files: s = 480px wide, l = 1200px wide) ---------- */
   JO.img = (im, w) => (w <= 520 ? im.s : im.l);
@@ -116,8 +143,11 @@
   JO.availableSizes = (p) => p.v.filter((v) => v.a);
 
   const catImgCache = {};
-  /** a good-looking, DISTINCT representative image for each category (first in-stock portrait product not used yet) */
+  /** a good-looking, DISTINCT representative image for each category (first in-stock portrait product not used yet),
+      unless a thumbnail was chosen for it in the admin panel */
   JO.catImage = (key) => {
+    const chosen = DATA.categoryImages;
+    if (chosen && Object.prototype.hasOwnProperty.call(chosen, key)) return chosen[key];
     if (!Object.keys(catImgCache).length) {
       const used = new Set();
       const portrait = (p) => p.i[0] && p.i[0].w / p.i[0].h > 0.72 && p.i[0].w / p.i[0].h < 0.8;
@@ -133,6 +163,21 @@
     return catImgCache[key] || (products[0] && products[0].i[0]) || null;
   };
   JO.catProducts = (key, n) => JO.col(key).filter((p) => p.a).slice(0, n);
+
+  /* The two photos on a home page slide: the ones chosen in the admin panel, and automatic picks
+     (portrait jerseys on sale from the slide's collection) in any empty place. Returns two places;
+     one stays empty (null) if there is nothing to show. The admin preview runs this same code. */
+  JO.heroPhotos = (slide) => {
+    const chosen = slide.photos || [];
+    const used = new Set(chosen.filter(Boolean).map((c) => c.p));
+    const auto = JO.catProducts(slide.key, 12).filter((p) => p.i[0].w / p.i[0].h < 0.8 && !used.has(p.h));
+    return [0, 1].map((place) => {
+      const c = chosen[place];
+      if (c) return { img: c, href: c.p ? JO.url.product({ h: c.p }) : JO.url.shop(slide.key), alt: c.t || slide.title };
+      const p = auto.shift();
+      return p ? { img: p.i[0], href: JO.url.product(p), alt: p.t } : null;
+    });
+  };
 
   const STOP = new Set('kit jersey home away third season edition embroidery premium retro fan with the of and fc ac special imported collar five sleeve long full 2026 2025 2024'.split(' '));
   JO.similar = (p, n = 10) => {

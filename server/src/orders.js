@@ -1,5 +1,8 @@
 /* Orders: placing, tracking, and the admin's status changes (which move stock). */
+import { record } from './audit.js';
 import { AppError, invalid, notFound } from './errors.js';
+import { sizeKey } from './sizes.js';
+import { shopConfig } from './storefront-data.js';
 
 export const MAX_QTY = 10; // matches JO.cart.MAX_QTY in the storefront
 
@@ -33,7 +36,7 @@ const clean = (s, lines = false) =>
     .replace(lines ? /[\u0000-\u0009\u000B-\u001F\u007F]/g : /[\u0000-\u001F\u007F]+/g, ' ')
     .trim();
 
-function readCustomer(input) {
+export function readCustomer(input) {
   const customer = {
     name: clean(input.name),
     phone: normalizePhone(input.phone),
@@ -64,10 +67,20 @@ const itemOut = (i) => ({
 
 const itemsOf = async (q, orderId) => (await q.query('SELECT * FROM order_items WHERE order_id = $1 ORDER BY id', [orderId])).rows;
 
+export const surpriseTitle = () => `${shopConfig().wildcard?.name || 'Orbit Wildcard'} (surprise jersey)`;
+
+/* The items as the customer may see them. For a wildcard order the jersey stays a surprise: no name,
+   no size label of its own (which could narrow it down), and no product id. */
+async function customerItems(q, order) {
+  const items = (await itemsOf(q, order.id)).map(itemOut);
+  if (order.wildcard_date === null) return items;
+  return items.map(({ variantId, ...i }) => ({ ...i, title: surpriseTitle(), size: sizeKey(i.size) }));
+}
+
 /** what the customer who just placed the order gets back */
-const receipt = async (q, order) => ({
+export const receipt = async (q, order) => ({
   orderNumber: order.order_number,
-  items: (await itemsOf(q, order.id)).map(itemOut),
+  items: await customerItems(q, order),
   subtotal: rupees(order.subtotal_paise),
   shipping: rupees(order.shipping_paise),
   total: rupees(order.total_paise),
@@ -75,11 +88,14 @@ const receipt = async (q, order) => ({
 
 /* ---------- placing an order ---------- */
 
-async function findRepeat(q, clientRef, phone) {
+/** a repeated submit of the same order gets the first one back. `wildcard` says which kind it must be. */
+export async function findRepeat(q, clientRef, phone, wildcard = false) {
   const { rows } = await q.query('SELECT * FROM orders WHERE client_ref = $1', [clientRef]);
   if (!rows[0]) return null;
   // the reference belongs to someone else's order: refuse without revealing anything about it
-  if (rows[0].phone !== phone) throw new AppError(409, 'DUPLICATE_REFERENCE', 'Please reload the page and try again.');
+  if (rows[0].phone !== phone || (rows[0].wildcard_date !== null) !== wildcard) {
+    throw new AppError(409, 'DUPLICATE_REFERENCE', 'Please reload the page and try again.');
+  }
   return { order: await receipt(q, rows[0]), repeated: true };
 }
 
@@ -159,7 +175,10 @@ export async function placeOrder(db, shop, input) {
 export async function trackOrder(db, { orderNumber, phone }) {
   const number = normalizeOrderNumber(orderNumber);
   const digits = normalizePhone(phone);
-  const { rows } = number ? await db.query('SELECT * FROM orders WHERE order_number = $1 AND phone = $2', [number, digits]) : { rows: [] };
+  // an erased order has no phone number left, so it can no longer be looked up
+  const { rows } = number
+    ? await db.query('SELECT * FROM orders WHERE order_number = $1 AND phone = $2 AND erased_at IS NULL', [number, digits])
+    : { rows: [] };
   const order = rows[0];
   // one answer for "no such order" and "wrong phone", so order numbers cannot be probed
   if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'We couldn’t find an order with that number and phone number.');
@@ -172,7 +191,7 @@ export async function trackOrder(db, { orderNumber, phone }) {
     placedAt: order.created_at,
     courier: shipped ? order.courier : '',
     trackingId: shipped ? order.tracking_id : '',
-    items: (await itemsOf(db, order.id)).map(({ product_title, size, quantity }) => ({ title: product_title, size, quantity })),
+    items: (await customerItems(db, order)).map(({ title, size, quantity }) => ({ title, size, quantity })),
     total: rupees(order.total_paise),
     history: events.map((e) => ({ status: e.status, at: e.created_at })),
   };
@@ -190,16 +209,45 @@ const summaryOut = (o) => ({
   city: o.city,
   total: rupees(o.total_paise),
   createdAt: o.created_at,
+  erased: o.erased_at !== null,
+  wildcard: o.wildcard_date !== null,
 });
 
-export async function listOrders(db, { status, q, page = 1, pageSize = 25 }) {
+/* The special lists the dashboard links to. Its counts use these same conditions, so a count and
+   its list can never disagree. */
+export const ORDER_VIEWS = {
+  // the shop promises to dispatch within 24 hours
+  late: `o.status IN ('confirmed', 'packed') AND EXISTS (SELECT 1 FROM order_events e
+           WHERE e.order_id = o.id AND e.status = 'confirmed' AND e.created_at < now() - interval '24 hours')`,
+  unpaid: `o.status IN ('confirmed', 'packed', 'shipped', 'delivered') AND o.payment_status = 'unpaid'`,
+  refund: `o.status = 'cancelled' AND o.payment_status = 'paid'`,
+  // confirming these would take no stock for the missing line
+  missing: `o.status = 'pending' AND EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.id AND i.variant_id IS NULL)`,
+  wildcard: 'o.wildcard_date IS NOT NULL',
+};
+
+/** the digits of a search that looks like a phone number, without +91 or a leading 0; otherwise null */
+function phoneSearch(q) {
+  const text = q.trim();
+  if (!/^\+?[\d\s()-]+$/.test(text)) return null;
+  let digits = text.replace(/\D/g, '');
+  if (text.startsWith('+91') || (digits.length === 12 && digits.startsWith('91'))) digits = digits.slice(2);
+  else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+  return digits.length >= 5 ? digits : null;
+}
+
+export async function listOrders(db, { status, view, q, page = 1, pageSize = 25 }) {
   const where = [];
   const params = [];
   const add = (value) => `$${params.push(value)}`;
   if (status) where.push(`o.status = ${add(status)}`);
+  if (view && Object.hasOwn(ORDER_VIEWS, view)) where.push(`(${ORDER_VIEWS[view]})`);
   if (q) {
     const text = add(`%${q.replace(/[\\%_]/g, '\\$&')}%`);
-    where.push(`(o.order_number ILIKE ${text} OR o.customer_name ILIKE ${text} OR o.phone LIKE ${text} OR o.tracking_id ILIKE ${text})`);
+    const matches = [`o.order_number ILIKE ${text}`, `o.customer_name ILIKE ${text}`, `o.phone LIKE ${text}`, `o.tracking_id ILIKE ${text}`];
+    const digits = phoneSearch(q);
+    if (digits) matches.push(`o.phone LIKE ${add(`%${digits}%`)}`);
+    where.push(`(${matches.join(' OR ')})`);
   }
   const filter = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const total = (await db.query(`SELECT count(*) AS n FROM orders o ${filter}`, params)).rows[0].n;
@@ -228,11 +276,17 @@ export async function getOrder(q, id) {
     adminNote: o.admin_note,
     courier: o.courier,
     trackingId: o.tracking_id,
+    erasedAt: o.erased_at,
     subtotal: rupees(o.subtotal_paise),
     shipping: rupees(o.shipping_paise),
-    items: (await itemsOf(q, id)).map((i) => ({ ...itemOut(i), stockTaken: i.stock_taken })),
+    // the admin always sees the real jersey, wildcard or not: it has to be packed
+    items: (
+      await q.query('SELECT i.*, v.product_id FROM order_items i LEFT JOIN product_variants v ON v.id = i.variant_id WHERE i.order_id = $1 ORDER BY i.id', [id])
+    ).rows.map((i) => ({ ...itemOut(i), stockTaken: i.stock_taken, productId: i.product_id, removed: i.variant_id === null })),
     history: events.map((e) => ({ status: e.status, at: e.created_at, by: e.username })),
     nextStatuses: TRANSITIONS[o.status],
+    canRepick: o.wildcard_date !== null && o.status === 'pending' && o.erased_at === null,
+    eraseBlocked: paymentUnsettled(o.status, o.payment_status),
   };
 }
 
@@ -291,19 +345,30 @@ async function returnStock(c, orderId) {
 }
 
 const EDITABLE = { paymentStatus: 'payment_status', courier: 'courier', trackingId: 'tracking_id', adminNote: 'admin_note' };
+// what the activity log says about each field; the private note's text is not copied into it
+const DESCRIBE = {
+  paymentStatus: (from, to) => `payment ${from} → ${to}`,
+  courier: () => 'courier changed',
+  trackingId: () => 'tracking ID changed',
+  adminNote: () => 'private note changed',
+};
 
-export async function updateOrder(db, id, changes, adminId) {
+export async function updateOrder(db, id, changes, by) {
   return db.tx(async (c) => {
     // the row lock makes two clicks on "Confirm" take stock only once
     const order = (await c.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [id])).rows[0];
     if (!order) throw notFound('Order');
+    // after erasing, nothing may write customer details back onto the order
+    if (order.erased_at) throw new AppError(409, 'ORDER_ERASED', 'This order’s customer details were erased, so it can no longer be changed.');
 
     const sets = [];
     const params = [id];
+    const done = [];
     for (const [key, column] of Object.entries(EDITABLE)) {
       if (changes[key] === undefined) continue;
       const value = key === 'paymentStatus' ? changes[key] : clean(changes[key], key === 'adminNote');
       sets.push(`${column} = $${params.push(value)}`);
+      if (value !== order[column]) done.push(DESCRIBE[key](order[column], value));
     }
 
     let stockMoved = false;
@@ -315,33 +380,45 @@ export async function updateOrder(db, id, changes, adminId) {
       if (next === 'confirmed') stockMoved = await takeStock(c, id);
       if (next === 'cancelled') stockMoved = await returnStock(c, id);
       sets.push(`status = $${params.push(next)}`);
-      await c.query('INSERT INTO order_events (order_id, status, admin_id) VALUES ($1, $2, $3)', [id, next, adminId]);
+      await c.query('INSERT INTO order_events (order_id, status, admin_id) VALUES ($1, $2, $3)', [id, next, by.id]);
+      done.unshift(`status ${order.status} → ${next}`);
     }
 
     if (sets.length) await c.query(`UPDATE orders SET ${sets.join(', ')} WHERE id = $1`, params);
+    if (done.length) {
+      await record(c, by, 'order.update', { target: `order:${order.order_number}`, summary: `${order.order_number}: ${done.join('; ')}` });
+    }
     return { order: await getOrder(c, id), stockMoved };
   });
 }
 
-export async function summary(db) {
-  const byStatus = Object.fromEntries(STATUSES.map((s) => [s, 0]));
-  for (const r of (await db.query('SELECT status, count(*) AS n FROM orders GROUP BY status')).rows) byStatus[r.status] = r.n;
-  // "today" and "this month" follow Indian time, wherever the server runs
-  const money = (
-    await db.query(`
-      WITH o AS (SELECT *, created_at AT TIME ZONE 'Asia/Kolkata' AS local FROM orders),
-           t AS (SELECT now() AT TIME ZONE 'Asia/Kolkata' AS now)
-      SELECT count(*) FILTER (WHERE local >= date_trunc('day', t.now)) AS orders_today,
-             coalesce(sum(total_paise) FILTER (WHERE payment_status = 'paid' AND status <> 'cancelled'
-                                               AND local >= date_trunc('month', t.now)), 0)::bigint AS paid_month
-        FROM o, t`)
-  ).rows[0];
-  const lowStock = (
-    await db.query(`
-      SELECT p.id AS "productId", p.title, v.size, v.stock_qty AS stock
-        FROM product_variants v JOIN products p ON p.id = v.product_id
-       WHERE p.is_published AND v.is_available AND v.stock_qty <= 2
-       ORDER BY v.stock_qty, p.title LIMIT 20`)
-  ).rows;
-  return { byStatus, ordersToday: money.orders_today, paidThisMonth: rupees(money.paid_month), lowStock };
+/** why a finished order's payment still needs doing before its details can go, or null */
+export const paymentUnsettled = (status, payment) =>
+  status === 'cancelled' && payment === 'paid'
+    ? 'This cancelled order is still marked paid. Send the refund and mark it Refunded first: erasing removes the phone number you need for it.'
+    : status === 'delivered' && payment === 'unpaid'
+      ? 'This delivered order is not marked paid yet. Update the payment first.'
+      : null;
+
+/* Removes who a finished order was for, and keeps what was sold for the shop's records. */
+export async function eraseOrder(db, id, by) {
+  return db.tx(async (c) => {
+    const order = (await c.query('SELECT order_number, status, payment_status, erased_at FROM orders WHERE id = $1 FOR UPDATE', [id])).rows[0];
+    if (!order) throw notFound('Order');
+    if (order.erased_at) throw new AppError(409, 'ORDER_ERASED', 'These details have already been erased.');
+    if (!['delivered', 'cancelled'].includes(order.status)) {
+      throw new AppError(409, 'ORDER_NOT_FINISHED', 'Only delivered or cancelled orders can be erased. Open orders still need the address.');
+    }
+    // an erased order can't be edited again, and a refund needs the phone number
+    const unsettled = paymentUnsettled(order.status, order.payment_status);
+    if (unsettled) throw new AppError(409, 'PAYMENT_UNSETTLED', unsettled);
+    await c.query(
+      `UPDATE orders SET customer_name = '[erased]', phone = '', address = '[erased]', city = '[erased]', pincode = '',
+              customer_note = '', admin_note = '', courier = '', tracking_id = '', erased_at = now()
+        WHERE id = $1`,
+      [id]
+    );
+    await record(c, by, 'order.erase', { target: `order:${order.order_number}`, summary: `${order.order_number}: customer details erased` });
+    return getOrder(c, id);
+  });
 }

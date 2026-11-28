@@ -202,8 +202,14 @@
       <div class="rte prose" style="padding-bottom:clamp(40px,6vw,90px)">${(window.JO_CONTENT || {})[key] || '<p>This policy is not available right now.</p>'}</div></div>`;
   };
 
-  /* ---------- account ---------- */
-  R.checkout = () => {
+  /* ---------- checkout ---------- */
+  R.checkout = () => (new URLSearchParams(location.search).has('wildcard') ? wildcardCheckout() : cartCheckout());
+
+  const emptyCheckout = (title, text, button) => {
+    main.innerHTML = `<div class="wrap">${phead('Checkout', '')}<div class="empty"><div class="empty__art">${ic('bag')}</div><h3>${title}</h3><p>${text}</p>${button}</div></div>`;
+  };
+
+  function cartCheckout() {
     const [buyId, buyQty] = (new URLSearchParams(location.search).get('buy') || '').split(':');
     const getLines = () => {
       if (!buyId) return JO.cart.lines();
@@ -211,18 +217,68 @@
       return r && r.v.a ? [{ vid: r.v.id, p: r.p, size: r.v.s, price: r.v.p, img: r.p.i[0], qty: Math.min(JO.cart.MAX_QTY, Math.max(1, parseInt(buyQty, 10) || 1)) }] : [];
     };
     const lines = getLines();
-    if (!lines.length) {
-      main.innerHTML = `<div class="wrap">${phead('Checkout', '')}<div class="empty"><div class="empty__art">${ic('bag')}</div><h3>Nothing to check out</h3><p>Add a jersey to your cart first.</p><a class="btn" href="shop.html">Browse jerseys ${ic('arrow')}</a></div></div>`;
-      return;
+    if (!lines.length) return emptyCheckout('Nothing to check out', 'Add a jersey to your cart first.', `<a class="btn" href="shop.html">Browse jerseys ${ic('arrow')}</a>`);
+    checkoutForm({
+      title: 'Checkout',
+      intro: 'Add your delivery details, then send the order to us on WhatsApp. No payment is taken on this website.',
+      sub: lines.reduce((n, l) => n + l.price * l.qty, 0),
+      fee: JO.shippingFee(lines),
+      summary: lines.map((l) => `<li><span class="co-lines__img">${JO.imgTag(l.img, { widths: [200], alt: '' })}</span><span><b>${esc(l.p.t)}</b><small>${l.size === 'One Size' ? 'One size' : 'Size ' + esc(l.size)} × ${l.qty}</small></span><em>${money(l.price * l.qty)}</em></li>`).join(''),
+      extra: '',
+      note: JO.cart.note,
+      check: () => ({}),
+      request: () => ({ items: lines.map((l) => ({ variantId: l.vid, quantity: l.qty })) }),
+      endpoint: 'api/orders',
+      messageLines: () => lines.map((l, i) => `${i + 1}) ${l.p.t}\n    Size: ${l.size} x ${l.qty} = ${money(l.price * l.qty)}`),
+      // a customer can always order: without the server the order goes on WhatsApp alone
+      sendWithoutServer: true,
+      buyNow: !!buyId,
+      clearCart: !buyId,
+    });
+  }
+
+  async function wildcardCheckout() {
+    const W = CFG.wildcard || { name: 'Orbit Wildcard' };
+    main.innerHTML = `<div class="wrap">${phead(W.name, 'Checking today’s places…', 'Checkout')}</div>`;
+    const live = await JO.getJson('api/wildcard');
+    const home = `<a class="btn" href="index.html">Back to home ${ic('arrow')}</a>`;
+    if (!live) {
+      return emptyCheckout('We can’t take wildcard orders right now', 'Please try again in a moment, or message us.',
+        `<a class="btn" href="${esc(JO.wa(`Hi Jersey Orbit! I have a question about the ${W.name}.`))}" target="_blank" rel="noopener">${ic('whatsapp')} Ask on WhatsApp</a>`);
     }
-    const sub = lines.reduce((n, l) => n + l.price * l.qty, 0);
-    const fee = JO.shippingFee(lines);
+    if (live.state !== 'open') return emptyCheckout(`The ${esc(W.name)} isn’t open`, 'It isn’t taking orders right now. Check back soon.', home);
+    if (!live.left) return emptyCheckout('Today’s wildcards are gone', `All ${esc(live.dailyLimit)} places for today are taken. Come back tomorrow!`, home);
+    if (!live.sizes.length) return emptyCheckout('No surprise jerseys right now', 'Please check back soon.', home);
+    checkoutForm({
+      title: W.name,
+      intro: 'Pick your size and add your delivery details. We choose your jersey at random, and it stays a surprise until it arrives. No payment is taken on this website.',
+      sub: live.price,
+      fee: live.shipping,
+      summary: `<li><span class="co-lines__img"><img src="${esc(W.image)}" alt="" width="64" height="54"></span><span><b>${esc(W.name)}</b><small>Surprise jersey × 1</small></span><em>${money(live.price)}</em></li>`,
+      extra: `<div class="field"><label for="co-size">Jersey size</label><select id="co-size" name="size"><option value="">Choose…</option>${live.sizes.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select><span class="err">Please choose your size.</span></div>
+          <div class="callout" style="margin:0"><b>What you get:</b> one jersey, picked at random, in your size. One per person per day; ${esc(live.left)} of ${esc(live.dailyLimit)} places left today. As with all our jerseys, there are no exchanges for fit, or because you’d have liked a different one. Damaged, defective or wrong items (including a wrong size) follow our <a href="policies.html?p=refund" style="text-decoration:underline">refund policy</a>.</div>`,
+      note: '',
+      check: (v) => ({ size: !v('size') }),
+      request: (v) => ({ size: v('size') }),
+      endpoint: 'api/wildcard/orders',
+      messageLines: (v) => [`1) ${W.name} (surprise jersey)`, `    Size: ${v('size')} x 1 = ${money(live.price)}`],
+      sendWithoutServer: false, // only the server can check today's limit
+      buyNow: false,
+      clearCart: false,
+      doneNote: ' Your jersey stays a surprise until it arrives!',
+    });
+    JO.markLoaded(main);
+  }
+
+  function checkoutForm(mode) {
+    const { sub, fee } = mode;
     const shipText = fee ? money(fee) : 'Free';
     const AREAS = { kerala: 'Kerala', india: 'Outside Kerala' };
     const field = (id, label, attrs, error) => `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id.slice(3)}" ${attrs}><span class="err">${error}</span></div>`;
-    main.innerHTML = `<div class="wrap">${phead('Checkout', 'Add your delivery details, then send the order to us on WhatsApp. No payment is taken on this website.')}
+    main.innerHTML = `<div class="wrap">${phead(mode.title, mode.intro, 'Checkout')}
       <div class="cartp">
         <form class="form" data-checkout-form novalidate>
+          ${mode.extra}
           <div class="form-row">
             ${field('co-name', 'Full name', 'autocomplete="name"', 'Please enter your name.')}
             ${field('co-phone', 'Phone', 'type="tel" inputmode="numeric" autocomplete="tel"', 'Enter a 10-digit mobile number.')}
@@ -233,13 +289,13 @@
             ${field('co-pin', 'PIN code', 'inputmode="numeric" maxlength="6" autocomplete="postal-code"', 'Enter a 6-digit PIN code.')}
           </div>
           <div class="field"><label for="co-area">Delivery area</label><select id="co-area" name="area"><option value="">Choose…</option>${Object.entries(AREAS).map(([k, name]) => `<option value="${k}">${name} — ${CFG.shipping[k].minDays}–${CFG.shipping[k].maxDays} business days</option>`).join('')}</select><span class="err">Please choose your delivery area.</span></div>
-          <div class="field"><label for="co-note">Order note (optional)</label><textarea id="co-note" name="note" style="min-height:70px" maxlength="500">${esc(JO.cart.note)}</textarea></div>
+          <div class="field"><label for="co-note">Order note (optional)</label><textarea id="co-note" name="note" style="min-height:70px" maxlength="500">${esc(mode.note)}</textarea></div>
           <div class="callout" data-co-alert role="alert" tabindex="-1" style="margin:0;background:#ffe3ec;color:#8a0f38" hidden></div>
           <button class="btn btn--block" type="submit">${ic('whatsapp')} Send order on WhatsApp</button>
           <p style="font-size:13px;color:var(--muted);margin:0;text-align:center">We use these details to process and deliver your order.</p>
         </form>
         <aside class="summary" aria-label="Your order"><h2>Your order</h2>
-          <ul class="co-lines">${lines.map((l) => `<li><span class="co-lines__img">${JO.imgTag(l.img, { widths: [200], alt: '' })}</span><span><b>${esc(l.p.t)}</b><small>${l.size === 'One Size' ? 'One size' : 'Size ' + esc(l.size)} × ${l.qty}</small></span><em>${money(l.price * l.qty)}</em></li>`).join('')}</ul>
+          <ul class="co-lines">${mode.summary}</ul>
           <div class="totals"><div><span>Subtotal</span><span>${money(sub)}</span></div><div><span>Shipping</span><span>${shipText}</span></div><div class="grand"><span>Total</span><span>${money(sub + fee)}</span></div></div>
         </aside>
       </div></div>`;
@@ -255,7 +311,7 @@
       const items = problem.error === 'ITEMS_UNAVAILABLE' ? problem.details || [] : [];
       alertBox.innerHTML = `<b>${esc(problem.message)}</b>${
         items.length
-          ? `<ul style="margin:8px 0">${items.map((d) => `<li>${esc(d.title || 'An item')}${d.size ? ` (${esc(d.size)})` : ''} ${d.reason === 'not_enough' ? `has only ${esc(d.left)} left` : why[d.reason] || 'is unavailable'}.</li>`).join('')}</ul><a href="${buyId ? 'shop.html' : 'cart.html'}" style="text-decoration:underline">${buyId ? 'Back to the catalog' : 'Change your cart'}</a>`
+          ? `<ul style="margin:8px 0">${items.map((d) => `<li>${esc(d.title || 'An item')}${d.size ? ` (${esc(d.size)})` : ''} ${d.reason === 'not_enough' ? `has only ${esc(d.left)} left` : why[d.reason] || 'is unavailable'}.</li>`).join('')}</ul><a href="${mode.buyNow ? 'shop.html' : 'cart.html'}" style="text-decoration:underline">${mode.buyNow ? 'Back to the catalog' : 'Change your cart'}</a>`
           : problem.error === 'TOTAL_CHANGED'
           ? ' <a href="" style="text-decoration:underline">Reload now</a>'
           : ''
@@ -269,7 +325,7 @@
       if (submit.disabled) return;
       const v = (n) => form.elements[n].value.trim();
       const phone = JO.normPhone(v('phone'));
-      const bad = { name: !v('name'), phone: !/^[6-9]\d{9}$/.test(phone), address: !v('address'), city: !v('city'), pin: !/^[1-9]\d{5}$/.test(v('pin')), area: !AREAS[v('area')] };
+      const bad = { ...mode.check(v), name: !v('name'), phone: !/^[6-9]\d{9}$/.test(phone), address: !v('address'), city: !v('city'), pin: !/^[1-9]\d{5}$/.test(v('pin')), area: !AREAS[v('area')] };
       Object.entries(bad).forEach(([n, isBad]) => JO.markField(form.elements[n], isBad));
       const first = Object.keys(bad).find((n) => bad[n]);
       if (first) return form.elements[first].focus();
@@ -287,7 +343,7 @@
       alertBox.hidden = true;
 
       const order = {
-        items: lines.map((l) => ({ variantId: l.vid, quantity: l.qty })),
+        ...mode.request(v),
         name: v('name').slice(0, 100),
         phone,
         address: v('address').slice(0, 500),
@@ -299,14 +355,16 @@
       };
       const body = JSON.stringify(order);
       if (body !== attempt.body) attempt = { body, ref: JO.uuid() };
-      const res = await JO.api('api/orders', { clientRef: attempt.ref, ...order });
+      const res = await JO.api(mode.endpoint, { clientRef: attempt.ref, ...order });
       submit.disabled = false;
       submit.innerHTML = submitHtml;
 
-      // the server looked at the order and said no (sold out, price changed…): don't send it
-      if (res && !res.ok && (res.status === 400 || res.status === 409)) {
+      // the server looked at the order and said no (sold out, price changed…): don't send it.
+      // The wildcard is only ever sent once the server has held a place for it.
+      const refused = res && !res.ok && (res.status === 400 || res.status === 409);
+      if (refused || (!mode.sendWithoutServer && !(res && res.ok && res.data.orderNumber))) {
         if (tab) tab.close();
-        return showProblem(res.data);
+        return showProblem(res && !res.ok ? res.data : { message: 'We couldn’t reach the shop to hold your place. Nothing was sent. Please try again in a moment.' });
       }
       // no server, or it couldn't answer: send the order on WhatsApp without an order number
       const saved = res && res.ok && res.data.orderNumber ? res.data : null;
@@ -315,7 +373,7 @@
         'Hi Jersey Orbit! I would like to order:',
         saved ? `Order no: ${saved.orderNumber}` : '',
         '',
-        ...lines.map((l, i) => `${i + 1}) ${l.p.t}\n    Size: ${l.size} x ${l.qty} = ${money(l.price * l.qty)}`),
+        ...mode.messageLines(v),
         '',
         `Subtotal: ${money(sub)}`,
         `Shipping (${areaName}): ${shipText}`,
@@ -331,9 +389,9 @@
       const opened = !!(tab && !tab.closed);
       if (opened) tab.location.replace(link);
       const message = saved
-        ? `Your order number is <b>${esc(saved.orderNumber)}</b>. Press <b>Send</b> in WhatsApp. We confirm your order after we get that message. Keep the number to check your order on the <a href="track.html" style="text-decoration:underline">Order Tracking</a> page.`
+        ? `Your order number is <b>${esc(saved.orderNumber)}</b>. Press <b>Send</b> in WhatsApp. We confirm your order after we get that message.${mode.doneNote || ''} Keep the number to check your order on the <a href="track.html" style="text-decoration:underline">Order Tracking</a> page.`
         : 'Press <b>Send</b> in WhatsApp. Your order isn’t placed until you send that message.';
-      main.innerHTML = `<div class="wrap"><div class="empty" style="padding-block:clamp(60px,10vw,120px)"><div class="empty__art">${ic('whatsapp')}</div><h3>One last step</h3><p>${message}</p><div class="hero__cta" style="justify-content:center"><a class="btn" href="${esc(link)}" target="_blank" rel="noopener">${opened ? 'Open WhatsApp again' : 'Open WhatsApp'}</a>${buyId ? '' : '<button class="btn btn--outline" type="button" data-sent>I’ve sent it — clear my cart</button>'}<a class="btn btn--outline" href="shop.html">Keep shopping</a></div></div></div>`;
+      main.innerHTML = `<div class="wrap"><div class="empty" style="padding-block:clamp(60px,10vw,120px)"><div class="empty__art">${ic('whatsapp')}</div><h3>One last step</h3><p>${message}</p><div class="hero__cta" style="justify-content:center"><a class="btn" href="${esc(link)}" target="_blank" rel="noopener">${opened ? 'Open WhatsApp again' : 'Open WhatsApp'}</a>${mode.clearCart ? '<button class="btn btn--outline" type="button" data-sent>I’ve sent it — clear my cart</button>' : ''}<a class="btn btn--outline" href="shop.html">Keep shopping</a></div></div></div>`;
       scrollTo({ top: 0, behavior: 'instant' });
       const sent = $('[data-sent]');
       sent && sent.addEventListener('click', () => {

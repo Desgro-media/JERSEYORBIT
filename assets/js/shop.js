@@ -111,7 +111,7 @@
     let l = state.q ? JO.search(state.q) : JO.col(state.c);
     if (state.q && state.c !== 'all') l = l.filter((p) => p.k.includes(state.c));
     if (state.avail) l = l.filter((p) => p.a);
-    if (state.sizes.length) l = l.filter((p) => p.v.some((v) => v.a && state.sizes.includes(v.s)));
+    if (state.sizes.length) l = l.filter((p) => p.v.some((v) => v.a && state.sizes.includes(JO.sizeKey(v.s))));
     if (state.min) l = l.filter((p) => p.p >= state.min);
     if (state.max) l = l.filter((p) => p.p <= state.max);
     const s = state.sort;

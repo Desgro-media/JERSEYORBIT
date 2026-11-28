@@ -1,6 +1,7 @@
 /* The API the storefront uses. No sign-in, so every input is checked and the writes are rate limited. */
 import { placeOrder, trackOrder, MAX_QTY } from '../orders.js';
 import { shopConfig } from '../storefront-data.js';
+import { placeWildcard, wildcardStatus } from '../wildcard.js';
 
 const text = (maxLength) => ({ type: 'string', maxLength });
 
@@ -35,6 +36,15 @@ const orderBody = {
   },
 };
 
+/* A wildcard order: the same customer details, and a size instead of items. */
+const { items, ...customerFields } = orderBody.properties;
+const wildcardBody = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['clientRef', 'size', 'name', 'phone', 'address', 'city', 'pincode', 'area'],
+  properties: { ...customerFields, size: text(20) },
+};
+
 const trackBody = {
   type: 'object',
   additionalProperties: false,
@@ -60,6 +70,15 @@ export default async function publicRoutes(app, { db, catalog }) {
   app.post('/api/orders', { schema: { body: orderBody }, config: limit(20, '10 minutes') }, async (request, reply) => {
     const { order, repeated } = await placeOrder(db, shopConfig(), request.body);
     if (!repeated) request.log.info({ order: order.orderNumber }, 'order placed');
+    return reply.code(repeated ? 200 : 201).send(order);
+  });
+
+  // today's places for the home page and checkout. It says nothing about which jerseys are picked.
+  app.get('/api/wildcard', { config: limit(120, '1 minute') }, async () => wildcardStatus(db, shopConfig()));
+
+  app.post('/api/wildcard/orders', { schema: { body: wildcardBody }, config: limit(10, '10 minutes') }, async (request, reply) => {
+    const { order, repeated } = await placeWildcard(db, shopConfig(), request.body);
+    if (!repeated) request.log.info({ order: order.orderNumber }, 'wildcard order placed');
     return reply.code(repeated ? 200 : 201).send(order);
   });
 

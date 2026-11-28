@@ -8,7 +8,7 @@ The Jersey Orbit shop: a plain HTML, CSS and JavaScript storefront with no build
 | Backend | Node.js and Fastify |
 | Database | PostgreSQL |
 
-The design decisions and security checklist are in [`specs/backend_design.md`](specs/backend_design.md).
+The design decisions are in [`specs/backend_design.md`](specs/backend_design.md). The 20-point security checklist, roles and activity log are in [`specs/security_and_admin_design.md`](specs/security_and_admin_design.md).
 
 ## Run it with the backend
 
@@ -27,7 +27,43 @@ npm start
 - Shop: <http://localhost:4000>
 - Admin panel: <http://localhost:4000/admin/>
 
-There is no default admin account. Run `npm run admin:create` again to reset a password.
+Keep `NODE_ENV=development` in `.env` on your own computer. Without it the server runs in live mode, which refuses the local database password.
+
+There is no default admin account. Run `npm run admin:create` again to reset a password. New database changes are applied automatically when the server starts. Admins that already existed become owners, and their password hashes are strengthened at their next sign-in.
+
+## The admin panel
+
+| Screen | What you can do |
+| --- | --- |
+| **Dashboard** | See what needs doing (refunds due, late dispatch, unpaid or waiting orders), latest orders, wildcard places, stock, and sales over 7, 30 or 90 days with charts, top jerseys, sizes and delivery areas. |
+| **Storefront** | Change the home page slideshow (photos, texts, order, visibility) and the thumbnail of every catalog category. Upload a photo, pick one from a product, or leave it automatic. |
+| **Wildcard** | Take orders, show “coming soon” or hide it. Set the price, places per day, and which jerseys can be picked (owner only). |
+| **Products** | Search, filter (on website, hidden, sold out, low stock), sort. Add a jersey with its photos and publish it in one step. Change its name, details, sizes, prices, stock, photos, collections and web address. Duplicate it, move it in the "Featured" order, or delete it. |
+| **Bulk changes** | Select several products to show or hide them, set a price, take a percentage off, end a sale, mark sold out or back on sale, add to or remove from a collection, move to the top, or delete. |
+| **Collections** | Add your own categories. Each one appears in the shop menu once it has a product on the website. The built-in ones are named in `config.js`. |
+| **Orders** | Confirm, pack, ship and cancel, record payment, and message the customer on WhatsApp. |
+| **Activity** | Who changed what, and when. |
+| **Account** | Change your password, or sign out your other devices. |
+
+### The Orbit Wildcard
+
+It stays “coming soon” until an owner sets a price and opens it. The server picks a random jersey in the buyer's size, at most the set number a day and one per phone number. The buyer never sees which jersey it is. The website takes no payment, so a fake order can hold a place until you cancel it. Details: [`specs/storefront_wildcard_dashboard_design.md`](specs/storefront_wildcard_dashboard_design.md).
+
+## Admins and roles
+
+| Role | Can |
+| --- | --- |
+| **Owner** | Everything. |
+| **Staff** | Manage orders, products and the storefront. Staff cannot delete products or collections, change wildcard settings, erase customer details or read the activity log. |
+
+Accounts can only be added or removed from the command line on the server:
+
+```sh
+npm run admin:create                   # add an admin, or reset a password
+npm run admin:remove -- their-name     # remove one and sign them out
+```
+
+The first account is the owner. Later ones are staff unless you choose otherwise. An admin is signed out after an hour without use, and always after 12 hours.
 
 ## Run the storefront alone
 
@@ -63,12 +99,12 @@ If the backend refuses an order (a size sold out, or the price changed), the cus
 
 | To change | Where |
 | --- | --- |
-| Products, prices, stock, photos | Admin panel (changes show within seconds) |
-| Text, menu, FAQ, shipping fees, size chart | `assets/js/config.js` (the backend reads the shipping fees from here too) |
+| Products, prices, stock, photos, your own collections | Admin panel (changes show within seconds) |
+| Text, menu, FAQ, shipping fees, size chart, built-in collection names | `assets/js/config.js` (the backend reads the shipping fees from here too) |
 | Customer reviews | `chatReviews` in `config.js`, with images in `assets/img/reviews/` |
 | Design | `assets/css/main.css` |
 
-Once the backend is running, the database is the catalog. `assets/js/data.js` is only used for the first import and when the storefront runs alone, so admin changes do not appear in it. `npm run db:seed` adds products that are missing from the database and never overwrites existing ones.
+Once the backend is running, the database is the catalog. `assets/js/data.js` is only used for the first import and when the storefront runs alone, so admin changes do not appear in it. `npm run db:seed` adds products that are missing from the database. It never overwrites existing ones, and never brings back one you deleted.
 
 `tools/sync-products.mjs` and `tools/localize-images.mjs` imported the catalog from the previous store. Running the first one again replaces `data.js`. If you do, run the second one straight after.
 
@@ -80,9 +116,14 @@ Once the backend is running, the database is the catalog. `assets/js/data.js` is
 cd server
 npm run db:up
 npm test
+npm run security:audit   # known problems in the packages, and their registry signatures
 ```
 
-The tests use a separate database ending in `_test`, which they create and wipe. They cover pricing, stock when two orders compete, sign-in security, private files and photo uploads.
+The tests use a separate database ending in `_test`, which they create and wipe. They cover pricing, stock when two orders compete, product management, and the security checklist (including a run of the whole shop with the least-privilege database login). They need a database login that may create roles, which the Docker one can.
+
+On GitHub, [`.github/workflows/checks.yml`](.github/workflows/checks.yml) runs the tests and the package check on every push and every Monday, and Dependabot proposes package updates.
+
+**Adding a package:** check on npmjs.com that it is the real one (publisher, source repository, age and downloads) before adding it to the approved list in `server/test/security.test.js`. Package install scripts are switched off in `server/.npmrc`.
 
 ## Going live
 
@@ -95,6 +136,7 @@ The backend serves the shop and the API together, so it needs a host that runs N
 5. Give the app a **persistent disk** and point `UPLOAD_DIR` at it. Otherwise uploaded photos disappear on the next deploy. Back up that folder too.
 6. Use HTTPS. In production the admin cannot stay signed in without it.
 7. With `DATABASE_URL` set to the live database, run `npm run db:setup` and `npm run admin:create` once. New database changes are applied automatically when the server starts.
+8. Recommended: run `npm run db:app-role`. Put the connection it prints in `DATABASE_URL`, and the one you used before in `DATABASE_OWNER_URL`. The website then cannot create admins, change roles, delete orders or edit the activity log. After this, apply new database changes with `npm run db:migrate`. For the strongest separation, keep `DATABASE_OWNER_URL` only where you run those commands, not in the running website's settings.
 
 Run one copy of the app. Rate limits are counted in its memory, and uploads are on its disk.
 
@@ -103,5 +145,6 @@ Never upload the `server/` folder to a static file host, and never commit `.env`
 ## Before launch
 
 - Replace the placeholder size chart in `config.js` with real garment measurements.
-- Write a privacy policy and terms of service. The site only has shipping and refund policies. This matters more now that the backend **stores customers' names, phone numbers and addresses**. Decide how long you keep them. There is no button to delete old orders yet.
+- Write a privacy policy and terms of service. The site only has shipping and refund policies. This matters more now that the backend **stores customers' names, phone numbers and addresses**, and the activity log stores admins' IP addresses. Decide how long you keep them. An owner can erase the customer's details from a delivered or cancelled order. Nothing is erased automatically.
 - Use a long, unique admin password.
+- A plain static host such as GitHub Pages cannot send security headers. The pages carry a backup policy in a `<meta>` tag, but protection against other sites framing the shop needs the backend, or a host that can set headers.

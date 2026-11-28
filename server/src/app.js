@@ -6,9 +6,12 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { createCatalog } from './catalog.js';
 import { AppError } from './errors.js';
+import { PERMISSIONS_POLICY, storefrontPolicy } from './headers.js';
 import adminRoutes from './routes/admin.js';
 import publicRoutes from './routes/public.js';
 import siteRoutes from './routes/site.js';
+
+const UNREADABLE = { error: 'BAD_REQUEST', message: 'The request could not be read.' };
 
 export async function buildApp({ db, env, logger = true }) {
   const app = Fastify({
@@ -19,7 +22,14 @@ export async function buildApp({ db, env, logger = true }) {
     },
     trustProxy: env.trustProxy || false,
     bodyLimit: 64 * 1024,
+    // errors raised before any route runs (a malformed address, say) get the same plain answer
+    frameworkErrors: (err, request, reply) => reply.code(400).send(UNREADABLE),
   });
+
+  // every registered route, so the tests can check the sign-in rules against all of them
+  const routes = [];
+  app.addHook('onRoute', (route) => routes.push({ method: route.method, url: route.url, config: route.config || {} }));
+  app.decorate('routeList', routes);
 
   app.setErrorHandler((err, request, reply) => {
     if (err instanceof AppError) return reply.code(err.status).send({ error: err.code, message: err.message, details: err.details });
@@ -29,32 +39,21 @@ export async function buildApp({ db, env, logger = true }) {
     }
     if (err.statusCode === 429) return reply.code(429).send({ error: 'RATE_LIMITED', message: 'Too many attempts. Please wait a few minutes and try again.' });
     if (err.statusCode === 413) return reply.code(413).send({ error: 'TOO_LARGE', message: 'That file or request is too large (photos up to 10 MB).' });
-    if (err.statusCode >= 400 && err.statusCode < 500) return reply.code(err.statusCode).send({ error: 'BAD_REQUEST', message: 'The request could not be read.' });
+    if (err.statusCode >= 400 && err.statusCode < 500) return reply.code(err.statusCode).send(UNREADABLE);
     // the details go to the log only; callers learn nothing about the inside of the server
     request.log.error({ err }, 'request failed');
     return reply.code(500).send({ error: 'SERVER_ERROR', message: 'Something went wrong. Please try again.' });
   });
 
   await app.register(helmet, {
-    contentSecurityPolicy: {
-      useDefaults: false,
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"], // the storefront uses style="" attributes
-        imgSrc: ["'self'", 'data:'],
-        fontSrc: ["'self'"],
-        connectSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        baseUri: ["'self'"],
-        formAction: ["'self'"],
-        frameAncestors: ["'none'"],
-        ...(env.production ? { upgradeInsecureRequests: [] } : {}),
-      },
-    },
+    contentSecurityPolicy: { useDefaults: false, directives: storefrontPolicy(env.production) },
+    frameguard: { action: 'deny' }, // no other page may show this one in a frame
     strictTransportSecurity: env.production ? { maxAge: 15552000 } : false,
     crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }, // checkout opens WhatsApp in a new tab
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  });
+  app.addHook('onRequest', async (request, reply) => {
+    reply.header('permissions-policy', PERMISSIONS_POLICY);
   });
   await app.register(compress, { threshold: 1024 });
   await app.register(cookie);

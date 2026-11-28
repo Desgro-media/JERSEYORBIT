@@ -1,6 +1,9 @@
 /* Builds the storefront catalog (window.JO_DATA) from the database, in the same shape as the static
    assets/js/data.js, so the website's catalog code works with either one. */
 import crypto from 'node:crypto';
+import { menuCollections } from './collections.js';
+import { storefrontFeed } from './storefront.js';
+import { publicSettings, readWildcard } from './wildcard.js';
 
 // short, so that a second server instance or a change made directly in the database also shows up soon
 const MAX_AGE_MS = 15_000;
@@ -22,7 +25,8 @@ const SQL = `
    WHERE p.is_published
    ORDER BY p.sort_order, p.id`;
 
-export async function buildCatalog(db, now = Date.now()) {
+/** `extras: false` leaves out what the admin chose (slideshow, thumbnails, wildcard) */
+export async function buildCatalog(db, { now = Date.now(), extras = true } = {}) {
   const { rows } = await db.query(SQL);
   const collections = { all: 0 };
   const products = [];
@@ -50,7 +54,11 @@ export async function buildCatalog(db, now = Date.now()) {
     });
   }
   // rounded to the day so the file (and its ETag) only changes when the catalog does, or once a day
-  return { generated: new Date(Math.floor(now / DAY_MS) * DAY_MS).toISOString(), cdn: '', collections, products };
+  const generated = new Date(Math.floor(now / DAY_MS) * DAY_MS).toISOString();
+  // categories: collections made in the admin panel, which config.js does not know about
+  const catalog = { generated, cdn: '', collections, categories: await menuCollections(db, collections), products };
+  if (!extras) return catalog;
+  return { ...catalog, ...(await storefrontFeed(db)), wildcard: publicSettings(await readWildcard(db)) };
 }
 
 export function createCatalog(db, log) {

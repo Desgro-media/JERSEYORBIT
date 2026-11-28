@@ -24,3 +24,14 @@ export function shopConfig() {
 
 /** The catalog committed with the website (used once, to fill the database). */
 export const staticCatalog = () => readWindowGlobal(path.join(ROOT, 'assets', 'js', 'data.js'), 'JO_DATA');
+
+/* Runs the website's own catalog code (config.js, then core.js) on a catalog, so the admin panel can
+   preview exactly which photos the shop picks automatically. Only these two repository files run. */
+export function storefrontCode(data) {
+  const window = { addEventListener() {}, JO_DATA: structuredClone(data) };
+  const context = vm.createContext({ window, localStorage: { getItem: () => null, setItem() {} }, location: { href: 'http://localhost/' }, URL, setTimeout, clearTimeout });
+  for (const file of [CONFIG_FILE, path.join(ROOT, 'assets', 'js', 'core.js')]) {
+    vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file, timeout: 5000 });
+  }
+  return window.JO;
+}

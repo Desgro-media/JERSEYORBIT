@@ -22,10 +22,16 @@ const pages = {
   '404': ['Page not found — Jersey Orbit', 'This page could not be found.'],
 };
 
+// Content-Security-Policy for plain static hosting, which cannot send headers. The backend sends the same
+// rules as headers (server/src/headers.js). index.html, shop.html and product.html carry this line too,
+// and a test checks that every page has it. Framing rules do not work in a <meta> tag.
+const CSP = "default-src 'self'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'";
+
 const tpl = (key, title, desc) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${CSP}">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${title}</title>
 <meta name="description" content="${desc}">

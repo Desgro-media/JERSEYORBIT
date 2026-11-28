@@ -6,16 +6,17 @@
     ic = JO.ic,
     esc = JO.esc,
     $ = JO.$,
-    $$ = JO.$$;
+    $$ = JO.$$,
+    money = JO.money;
   const main = $('#main');
 
   /* ---------- hero ---------- */
   const TINTS = ['#eaffd0', '#ffe3f3', '#dfe8ff'];
-  const heroSlides = CFG.hero
-    .map((h, i) => {
-      const picks = JO.catProducts(h.key, 12).filter((p) => p.i[0].w / p.i[0].h < 0.8).slice(0, 2);
-      if (picks.length < 2) return null;
-      return { h, i, picks };
+  // slides saved in the admin panel, or the ones in config.js
+  const heroSlides = (JO.data.hero || CFG.hero)
+    .map((h) => {
+      const picks = JO.heroPhotos(h).filter(Boolean);
+      return picks.length ? { h, picks } : null;
     })
     .filter(Boolean);
 
@@ -34,17 +35,21 @@
               <div class="hero__cta"><a class="btn" href="${JO.url.shop(s.h.key)}">${esc(s.h.cta)} ${ic('arrow')}</a><a class="btn btn--outline" href="shop.html">All jerseys</a></div>
             </div>
             <div class="hero__media">
-              ${s.picks.map((p, k) => `<a class="hero__img" href="${JO.url.product(p)}" tabindex="${i ? -1 : 0}" aria-label="${esc(p.t)}">${JO.imgTag(p.i[0], { widths: [360, 540, 760], sizes: '(min-width:900px) 27vw, 33vw', alt: p.t, eager: i === 0 })}</a>`).join('')}
+              ${s.picks.map((pick) => `<a class="hero__img" href="${esc(pick.href)}" tabindex="${i ? -1 : 0}" aria-label="${esc(pick.alt)}">${JO.imgTag(pick.img, { widths: [360, 540, 760], sizes: '(min-width:900px) 27vw, 33vw', alt: pick.alt, eager: i === 0 })}</a>`).join('')}
             </div>
           </article>`
           )
           .join('')}
       </div>
-      <div class="hero__ui">
+      ${
+        heroSlides.length > 1
+          ? `<div class="hero__ui">
         <button class="hero__arrow" type="button" data-hero="-1" aria-label="Previous slide">${ic('chevL')}</button>
         <div class="hero__dots" role="group" aria-label="Choose slide">${heroSlides.map((s, i) => `<button class="hero__dot${i === 0 ? ' is-active' : ''}" type="button" aria-label="Slide ${i + 1}" aria-current="${i === 0}" data-dot="${i}"></button>`).join('')}</div>
         <button class="hero__arrow" type="button" data-hero="1" aria-label="Next slide">${ic('chevR')}</button>
-      </div>
+      </div>`
+          : ''
+      }
     </section>`;
 
   /* ---------- category tiles ---------- */
@@ -86,20 +91,25 @@
     return `<div class="band" aria-hidden="true"><div class="band__track">${one.repeat(2)}${one.repeat(2)}</div></div>`;
   })();
 
-  /* ---------- surprise jersey (design only, see CFG.wildcard) ---------- */
+  /* ---------- surprise jersey ---------- */
   const W = CFG.wildcard;
-  const wildHtml = W
-    ? `
+  // The admin panel sets whether it takes orders, the price and the places per day. Without the order
+  // server (plain static hosting) it shows as "coming soon".
+  const WS = JO.data.wildcard || { state: 'soon', dailyLimit: W && W.dailyLimit };
+  const wildHtml =
+    W && WS.state !== 'off'
+      ? `
     <section class="wild" aria-labelledby="wild-t">
       <div class="wild__art"><img src="${W.image}" alt="An open gift box with a surprise jersey rising out of it" width="600" height="500" loading="lazy" decoding="async"></div>
       <div class="wild__copy" data-reveal>
         <p class="eyebrow">${esc(W.name)}</p>
         <h2 id="wild-t">${esc(W.title)}</h2>
-        <p>One <strong>random jersey</strong> inside. We pick the kit, you enjoy the surprise. Limited to <strong>${W.dailyLimit} customers a day</strong>!</p>
+        <p>One <strong>random jersey</strong> inside. We pick the kit, you enjoy the surprise. Limited to <strong>${esc(WS.dailyLimit)} customer${WS.dailyLimit === 1 ? '' : 's'} a day</strong>!</p>
+        ${WS.state === 'open' ? `<p class="wild__status" data-wild-status role="status"><b>${money(WS.price)}</b> · one per person per day</p>` : ''}
         <button class="btn" type="button" data-wild>${esc(W.button)} ${ic('arrow')}</button>
       </div>
     </section>`
-    : '';
+      : '';
 
   const retroPicks =JO.catProducts('retro', 20).filter((p) => p.i[0].w / p.i[0].h < 0.8).slice(2, 4);
   const bannerHtml = `
@@ -172,7 +182,21 @@
   JO.markLoaded(main);
 
   const wildBtn = $('[data-wild]');
-  wildBtn && wildBtn.addEventListener('click', () => JO.toast(`${W.name} ordering opens soon`, 'sparkle'));
+  if (wildBtn && WS.state === 'open') {
+    wildBtn.addEventListener('click', () => (location.href = 'checkout.html?wildcard=1'));
+    // today's places left, asked from the server; if it can't answer, the checkout checks again
+    JO.getJson('api/wildcard').then((live) => {
+      if (!live) return;
+      const status = $('[data-wild-status]');
+      const closed = live.state !== 'open' ? 'Not taking orders right now.' : !live.left ? 'All of today’s wildcards are gone. Come back tomorrow!' : !live.sizes.length ? 'No surprise jerseys are available right now.' : '';
+      if (closed) {
+        status.textContent = closed;
+        wildBtn.disabled = true;
+        return;
+      }
+      status.innerHTML = `<b>${money(live.price)}</b> + ${live.shipping ? `${money(live.shipping)} shipping` : 'free shipping'} · <b>${esc(live.left)} of ${esc(live.dailyLimit)}</b> left today · one per person`;
+    });
+  } else if (wildBtn) wildBtn.addEventListener('click', () => JO.toast(`${W.name} ordering opens soon`, 'sparkle'));
 
   /* ---------- hero behaviour ---------- */
   const hero = $('.hero');
