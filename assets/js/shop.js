@@ -61,8 +61,8 @@
   main.innerHTML = `
     <div class="wrap">
       <div class="phead">
-        <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><span data-crumb>Catalog</span></nav>
-        <h1 data-title>Catalog</h1>
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><span data-crumb>Category</span></nav>
+        <h1 data-title>Category</h1>
         <p data-sub></p>
       </div>
       <div class="shop-cats" role="group" aria-label="Categories" data-cats></div>
@@ -168,7 +168,7 @@
       cat = JO.cat(state.c);
     const title = isSearch ? `Results for “${state.q}”` : state.c === 'all' ? 'All products' : cat.title;
     $('[data-title]').textContent = title;
-    $('[data-crumb]').textContent = isSearch ? 'Search' : state.c === 'all' ? 'Catalog' : cat.title;
+    $('[data-crumb]').textContent = isSearch ? 'Search' : state.c === 'all' ? 'Category' : cat.title;
     $('[data-sub]').textContent = isSearch ? '' : state.c === 'all' ? 'Every jersey in the orbit — new drops, retro classics, embroidery and more.' : cat.blurb || '';
     $('[data-sub]').hidden = !$('[data-sub]').textContent;
     document.title = `${title} — Jersey Orbit`;

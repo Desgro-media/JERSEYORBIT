@@ -85,8 +85,8 @@ export default async function storefront(draw) {
       <span class="small muted" role="status" data-status></span>
       <button type="button" class="btn" data-save>Save slideshow</button>
     </div>
-    <section class="card"><h2>Catalog thumbnails</h2>
-      <p class="small muted">The picture for each category in the Catalog menu and on the home page. Changes here save at once.</p>
+    <section class="card"><h2>Category thumbnails</h2>
+      <p class="small muted">The picture for each category in the Category menu and on the home page. Changes here save at once.</p>
       <div class="thumbs" data-thumbs></div>
     </section>`
   );

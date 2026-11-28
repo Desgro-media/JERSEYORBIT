@@ -254,7 +254,7 @@
   const navHtml = CFG.nav
     .map((n) =>
       n.mega
-        ? `<button class="hdr__link" type="button" data-mega aria-expanded="false" aria-controls="mega" ${page === n.page ? 'aria-current="page"' : ''}>${n.label}${ic('chev')}</button><div class="mega" id="mega" role="group" aria-label="Catalog categories"><div class="mega__inner"></div></div>`
+        ? `<button class="hdr__link" type="button" data-mega aria-expanded="false" aria-controls="mega" ${page === n.page ? 'aria-current="page"' : ''}>${n.label}${ic('chev')}</button><div class="mega" id="mega" role="group" aria-label="Categories"><div class="mega__inner"></div></div>`
         : `<a class="hdr__link" href="${n.href}" ${page === n.page ? 'aria-current="page"' : ''}>${n.label}</a>`
     )
     .join('');
@@ -314,7 +314,7 @@
 
     <nav class="tabbar" aria-label="Quick navigation">
       <a href="index.html" ${page === 'home' ? 'aria-current="page"' : ''}>${ic('home')}Home</a>
-      <a href="shop.html" ${page === 'shop' ? 'aria-current="page"' : ''}>${ic('grid')}Catalog</a>
+      <a href="shop.html" ${page === 'shop' ? 'aria-current="page"' : ''}>${ic('grid')}Category</a>
       <button type="button" data-open="search">${ic('search')}Search</button>
       <button type="button" data-open="cart">${ic('bag')}Cart<span class="badge" data-cart-count>0</span></button>
     </nav>

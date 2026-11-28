@@ -243,7 +243,7 @@ export async function saveThumbnail(db, key, photo, by) {
       await setThumbnail(c, key, photo);
       await record(c, by, 'storefront.thumbnail', {
         target: `collection:${key}`,
-        summary: `Catalog thumbnail for “${category.title}”: ${photo ? 'new photo chosen' : 'back to automatic'}`,
+        summary: `Category thumbnail for “${category.title}”: ${photo ? 'new photo chosen' : 'back to automatic'}`,
       });
     })
   );
